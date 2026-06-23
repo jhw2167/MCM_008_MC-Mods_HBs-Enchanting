@@ -7,7 +7,7 @@ import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 
 @OnlyIn(Dist.CLIENT)
-public class TemplateMainForgeClient {
+public class EnchantingMainForgeClient {
 
 
     public static void clientInitializeForge() {

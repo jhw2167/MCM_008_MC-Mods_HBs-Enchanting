@@ -6,7 +6,7 @@ import net.blay09.mods.balm.api.config.reflection.Config;
 
 
 @Config(Constants.MOD_ID)
-public class TemplateConfig {
+public class EnchantingConfig {
 
     @Comment("devMode==true disables portal spawns so the player can build and save new challenges")
     public boolean devMode = false;

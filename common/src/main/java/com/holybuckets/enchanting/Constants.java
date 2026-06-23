@@ -5,7 +5,7 @@ import org.slf4j.LoggerFactory;
 
 public class Constants {
 
-	public static final String MOD_ID = "hbs_template";
-	public static final String MOD_NAME = "HBs Template";
+	public static final String MOD_ID = "hbs_enchanting";
+	public static final String MOD_NAME = "HBs Enchanting Overhaul";
 	public static final Logger LOG = LoggerFactory.getLogger(MOD_NAME);
 }

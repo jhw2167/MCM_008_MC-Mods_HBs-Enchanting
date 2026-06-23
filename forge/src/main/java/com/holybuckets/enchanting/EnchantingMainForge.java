@@ -8,9 +8,9 @@ import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.fml.common.Mod;
 
 @Mod( Constants.MOD_ID)
-public class TemplateMainForge {
+public class EnchantingMainForge {
 
-    public TemplateMainForge() {
+    public EnchantingMainForge() {
         super();
         Balm.initialize(Constants.MOD_ID, CommonClass::init);
         DistExecutor.runWhenOn(Dist.CLIENT, () -> () -> BalmClient.initialize(Constants.MOD_ID, CommonClassClient::initClient));

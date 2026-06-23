@@ -9,17 +9,17 @@
     ],
     "contact": {
         "homepage": "https://discord.gg/dp9d4wymNv",
-        "sources": "https://github.com/FabricMC/fabric-example-mod"
+        "sources": "https://github.com/jhw2167/MCM_008_MC-Mods_HBs-Enchanting"
     },
     "license": "${license}",
     "icon": "icon.png",
     "environment": "*",
     "entrypoints": {
         "main": [
-            "com.holybuckets.enchanting.TemplateMainFabric"
+            "com.holybuckets.enchanting.EnchantingMainFabric"
         ],
         "client": [
-            "com.holybuckets.enchanting.TemplateMainFabricClient"
+            "com.holybuckets.enchanting.EnchantingMainFabricClient"
         ]
     },
     "mixins": [
