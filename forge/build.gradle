@@ -131,7 +131,7 @@ publishing {
             }
         }
 		
-    maven { url "https://maven.shadowsoffire.dev/releases" }
+    maven { url "https://maven.shadowsoffire.dev/#/releases" }
 
     }
 }
