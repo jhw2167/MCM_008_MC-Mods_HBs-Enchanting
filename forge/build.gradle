@@ -82,7 +82,6 @@ dependencies {
 	
     implementation fg.deobf("net.blay09.mods:balm-forge:${balm_version}") {
         changing = true
-        transitive = false
     }
 
     implementation fg.deobf("com.holybuckets.foundation:HBs_Foundation-forge-${minecraft_version}:${foundation_version}") {
@@ -94,7 +93,7 @@ dependencies {
 
 	implementation fg.deobf("dev.shadowsoffire:Placebo:1.20.1-8.6.2")
     implementation fg.deobf("dev.shadowsoffire:ApothicAttributes:1.20.1-1.3.5")
-    implementation fg.deobf("dev.shadowsoffire:Apotheosis:1.20.1-7.4.3")
+    implementation fg.deobf("curse.maven:apotheosis-${apotheosis_proj_id}:${apotheosis_forge_file_id}")
 
 
 }
@@ -130,8 +129,5 @@ publishing {
                 artifact()
             }
         }
-		
-    maven { url "https://maven.shadowsoffire.dev/releases" }
-
     }
 }

@@ -70,6 +70,10 @@ subprojects {
             url = 'https://maven.blamejared.com'
         }
         maven {
+            name = 'Shadows of Fire (Placebo / ApothicAttributes / Apotheosis)'
+            url = 'https://maven.shadowsoffire.dev/releases'
+        }
+        maven {
             name = 'JitPack'
             url = 'https://jitpack.io'
         }
@@ -152,7 +156,10 @@ subprojects {
                 "balm_version": project.balm_version,
                 "balm_version_range": project.balm_version_range,
                 "foundation_version": project.foundation_version,
-                "create_version": project.create_version
+                "create_version": project.create_version,
+                "apotheosis_version": project.apotheosis_version,
+                "apotheosis_proj_id": project.apotheosis_proj_id,
+                "apotheosis_forge_file_id": project.apotheosis_forge_file_id
         ]
 
         filesMatching(['pack.mcmeta', 'fabric.mod.json', 'META-INF/mods.toml', '*.mixins.json']) {
