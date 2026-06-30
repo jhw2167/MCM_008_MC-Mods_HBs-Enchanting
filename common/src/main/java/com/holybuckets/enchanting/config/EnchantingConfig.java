@@ -13,6 +13,9 @@ public class EnchantingConfig {
     @Comment("Where the loot rules json configuration can be found. This file determines what loot is available in each level of pool")
     public String lootRulesConfig = "config/challengeTempleslootRules.json";
 
+    @Comment("File path to the enchanting block-power config. Defines which blocks contribute to enchantment power, their max stack count per altar, and the max power each contributes.")
+    public String enchantingBlockPowerConfig = "config/HBsEnchantingOverhaulConfig.json";
+
 
     public static class SatelliteBlockConfig {
 

@@ -3,6 +3,7 @@ package com.holybuckets.enchanting;
 
 import com.holybuckets.foundation.event.EventRegistrar;
 import com.holybuckets.enchanting.config.EnchantingConfig;
+import com.holybuckets.enchanting.config.ModConfig;
 import net.blay09.mods.balm.api.event.server.ServerStartingEvent;
 
 /**
@@ -37,6 +38,7 @@ public class EnchantingMain {
         EventRegistrar registrar = EventRegistrar.getInstance();
         //ChallengeBlockBehavior.init(registrar);
 
+        ModConfig.init(registrar);
 
         //register local events
         registrar.registerOnBeforeServerStarted(this::onServerStarting);
