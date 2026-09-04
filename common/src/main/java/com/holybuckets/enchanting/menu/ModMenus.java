@@ -6,6 +6,7 @@ import net.blay09.mods.balm.api.DeferredObject;
 import net.blay09.mods.balm.api.menu.BalmMenus;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.inventory.EnchantmentMenu;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -13,6 +14,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 public class ModMenus {
 
     public static DeferredObject<MenuType<TemplateChestEntityMenu>> countingChestMenu;
+    public static DeferredObject<MenuType<EnchantmentMenu>> enchantmentMenu;
 
 
     public static void initialize(BalmMenus menus)
@@ -29,6 +31,13 @@ public class ModMenus {
                 }
                 return null;
             });
+
+        initializeEnchantmentMenu(menus);
+    }
+
+    private static void initializeEnchantmentMenu(BalmMenus menus) {
+        enchantmentMenu = menus.registerMenu(id("enchantment_menu"),
+            (syncId, inventory, buf) -> new ModEnchantmentMenu(syncId, inventory, buf.readBoolean()));
     }
 
     private static ResourceLocation id(String name) {

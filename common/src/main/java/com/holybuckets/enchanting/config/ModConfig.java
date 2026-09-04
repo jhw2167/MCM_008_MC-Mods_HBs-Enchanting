@@ -38,12 +38,27 @@ public class ModConfig {
     }
 
     public Collection<EnchantingBlockPower.BlockPower> getBlockPowers() {
-        return enchantingBlockPower.getAll().values();
+        return enchantingBlockPower == null ? java.util.List.of() : enchantingBlockPower.getAll().values();
     }
 
     @Nullable
     public EnchantingBlockPower.BlockPower getBlockPower(String blockId) {
-        return enchantingBlockPower.get(blockId);
+        return enchantingBlockPower == null ? null : enchantingBlockPower.get(blockId);
+    }
+
+    public int getSearchRadius() {
+        return enchantingBlockPower == null
+            ? EnchantingBlockPower.DEF_SEARCH_RADIUS : enchantingBlockPower.getSearchRadius();
+    }
+
+    public int getStandardTableMaxPower() {
+        return enchantingBlockPower == null
+            ? EnchantingBlockPower.DEF_STANDARD_MAX_POWER : enchantingBlockPower.getStandardTableMaxPower();
+    }
+
+    public int getCopperTableMaxPower() {
+        return enchantingBlockPower == null
+            ? EnchantingBlockPower.DEF_COPPER_MAX_POWER : enchantingBlockPower.getCopperTableMaxPower();
     }
 
 

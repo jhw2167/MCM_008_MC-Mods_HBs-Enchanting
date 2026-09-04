@@ -20,7 +20,21 @@ public class EnchantingBlockPower implements IStringSerializable {
     public static final String DEF_CONFIG_FILE_PATH = "config/HBsEnchantingOverhaulConfig.json";
     public static final String ROOT_KEY = "enchantingBlockPower";
 
+    public static final String SEARCH_RADIUS_KEY = "searchRadius";
+    public static final String STANDARD_MAX_POWER_KEY = "standardTableMaxPower";
+    public static final String COPPER_MAX_POWER_KEY = "copperTableMaxPower";
+
+    public static final int DEF_SEARCH_RADIUS = 16;
+    public static final int DEF_STANDARD_MAX_POWER = 0;
+    public static final int DEF_COPPER_MAX_POWER = 15;
+
+    public static final int MAX_SEARCH_RADIUS = 32;
+
     private final Map<String, BlockPower> powerMap;
+
+    private int searchRadius = DEF_SEARCH_RADIUS;
+    private int standardTableMaxPower = DEF_STANDARD_MAX_POWER;
+    private int copperTableMaxPower = DEF_COPPER_MAX_POWER;
 
     public EnchantingBlockPower(List<BlockPower> entries) {
         this.powerMap = new LinkedHashMap<>();
@@ -59,15 +73,35 @@ public class EnchantingBlockPower implements IStringSerializable {
         powerMap.remove(blockId);
     }
 
+    /** Radius, in blocks, that an enchanting table scans for power providing blocks. */
+    public int getSearchRadius() {
+        return searchRadius;
+    }
+
+    /** Hard cap on the enchanting power of a standard enchanting table; 0 or less means uncapped. */
+    public int getStandardTableMaxPower() {
+        return standardTableMaxPower;
+    }
+
+    /** Hard cap on the enchanting power of a copper enchanting table; 0 or less means uncapped. */
+    public int getCopperTableMaxPower() {
+        return copperTableMaxPower;
+    }
+
 
     @Override
     public String serialize() {
         JsonObject root = new JsonObject();
+        root.addProperty(SEARCH_RADIUS_KEY, searchRadius);
+        root.addProperty(STANDARD_MAX_POWER_KEY, standardTableMaxPower);
+        root.addProperty(COPPER_MAX_POWER_KEY, copperTableMaxPower);
+
         JsonArray entries = new JsonArray();
         for (BlockPower bp : powerMap.values()) {
             entries.add(bp.serialize());
         }
         root.add(ROOT_KEY, entries);
+
         Gson gson = new GsonBuilder().setPrettyPrinting().create();
         return gson.toJson(root);
     }
@@ -84,6 +118,17 @@ public class EnchantingBlockPower implements IStringSerializable {
             if (!root.has(ROOT_KEY) || !root.get(ROOT_KEY).isJsonArray()) {
                 throw new RuntimeException("Root JSON object is missing required array '" + ROOT_KEY + "'");
             }
+
+            if (root.has(SEARCH_RADIUS_KEY)) {
+                this.searchRadius = Math.max(0, Math.min(MAX_SEARCH_RADIUS, root.get(SEARCH_RADIUS_KEY).getAsInt()));
+            }
+            if (root.has(STANDARD_MAX_POWER_KEY)) {
+                this.standardTableMaxPower = root.get(STANDARD_MAX_POWER_KEY).getAsInt();
+            }
+            if (root.has(COPPER_MAX_POWER_KEY)) {
+                this.copperTableMaxPower = root.get(COPPER_MAX_POWER_KEY).getAsInt();
+            }
+
             parseArray(root.getAsJsonArray(ROOT_KEY));
         } catch (RuntimeException e) {
             throw e;
@@ -121,22 +166,42 @@ public class EnchantingBlockPower implements IStringSerializable {
         private final String block;
         private final int maxCount;
         private final int maxPower;
+        private final float power;
 
         public BlockPower(String block, int maxCount, int maxPower) {
+            this(block, maxCount, maxPower, maxCount > 0 ? (float) maxPower / maxCount : 0f);
+        }
+
+        public BlockPower(String block, int maxCount, int maxPower, float power) {
             this.block = block == null ? "" : block;
             this.maxCount = maxCount;
             this.maxPower = maxPower;
+            this.power = power;
         }
 
         public String getBlock() { return block; }
+
+        /** Maximum number of this block that may contribute to a single table. */
         public int getMaxCount() { return maxCount; }
+
+        /** Maximum total power this block type may contribute to a single table. */
         public int getMaxPower() { return maxPower; }
+
+        /** Power contributed per individual block. */
+        public float getPower() { return power; }
+
+        /** Total power contributed by the given number of this block, with both caps applied. */
+        public float contribution(int count) {
+            int counted = Math.min(count, maxCount);
+            return Math.min(counted * power, maxPower);
+        }
 
         public JsonObject serialize() {
             JsonObject obj = new JsonObject();
             obj.addProperty("block", block);
             obj.addProperty("maxCount", maxCount);
             obj.addProperty("maxPower", maxPower);
+            obj.addProperty("power", power);
             return obj;
         }
 
@@ -144,6 +209,9 @@ public class EnchantingBlockPower implements IStringSerializable {
             String block = obj.has("block") ? obj.get("block").getAsString() : "";
             int maxCount = obj.has("maxCount") ? obj.get("maxCount").getAsInt() : 0;
             int maxPower = obj.has("maxPower") ? obj.get("maxPower").getAsInt() : 0;
+            if (obj.has("power")) {
+                return new BlockPower(block, maxCount, maxPower, obj.get("power").getAsFloat());
+            }
             return new BlockPower(block, maxCount, maxPower);
         }
 

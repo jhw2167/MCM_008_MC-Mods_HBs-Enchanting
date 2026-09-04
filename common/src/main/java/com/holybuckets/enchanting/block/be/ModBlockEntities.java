@@ -11,12 +11,17 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 
 public class ModBlockEntities {
     public static DeferredObject<BlockEntityType<TemplateBlockEntity>> templateChest;
+    public static DeferredObject<BlockEntityType<CopperEnchantingTableBlockEntity>> copperEnchantingTable;
 
     public static void initialize(BalmBlockEntities blockEntities)
     {
         templateChest =  blockEntities
             .registerBlockEntity( id("template_chest"), TemplateBlockEntity::new,
                 () -> new Block[]{ModBlocks.templateBlock} );
+
+        copperEnchantingTable = blockEntities
+            .registerBlockEntity( id("copper_enchanting_table"), CopperEnchantingTableBlockEntity::new,
+                () -> new Block[]{ModBlocks.copperEnchantingTable} );
 
 
     }

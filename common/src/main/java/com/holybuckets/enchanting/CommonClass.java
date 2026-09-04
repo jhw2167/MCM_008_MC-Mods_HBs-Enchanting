@@ -2,6 +2,7 @@ package com.holybuckets.enchanting;
 
 import com.holybuckets.foundation.event.BalmEventRegister;
 import com.holybuckets.enchanting.block.ModBlocks;
+import com.holybuckets.enchanting.config.EnchantingConfig;
 import com.holybuckets.enchanting.block.be.ModBlockEntities;
 import com.holybuckets.enchanting.item.ModItems;
 import com.holybuckets.enchanting.menu.ModMenus;
@@ -30,7 +31,7 @@ public class CommonClass {
         }
 
         //RegisterConfigs
-        //Balm.getConfig().registerConfig(ChallengeTempleConfig.class);
+        Balm.getConfig().registerConfig(EnchantingConfig.class);
         EnchantingMain.INSTANCE = new EnchantingMain();
         BalmEventRegister.registerEvents();
         BalmEventRegister.registerCommands();

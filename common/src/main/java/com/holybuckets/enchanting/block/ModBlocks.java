@@ -6,16 +6,21 @@ import net.blay09.mods.balm.api.block.BalmBlocks;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 
 public class ModBlocks {
 
     public static Block templateBlock;
+    public static Block copperEnchantingTable;
     //public static Block[] scopedSharestones = new SharestoneBlock[DyeColor.values().length];
 
     public static void initialize(BalmBlocks blocks) {
         blocks.register(() -> templateBlock = new EmptyBlock(defaultProperties()), () -> itemBlock(templateBlock), id("template_block"));
+
+        blocks.register(() -> copperEnchantingTable = new CopperEnchantingTableBlock(enchantingTableProperties()),
+            () -> itemBlock(copperEnchantingTable), id("copper_enchanting_table"));
 
         /*
         DyeColor[] colors = DyeColor.values();
@@ -32,6 +37,10 @@ public class ModBlocks {
 
     private static ResourceLocation id(String name) {
         return new ResourceLocation(Constants.MOD_ID, name);
+    }
+
+    private static BlockBehaviour.Properties enchantingTableProperties() {
+        return BlockBehaviour.Properties.copy(Blocks.ENCHANTING_TABLE);
     }
 
     private static BlockBehaviour.Properties defaultProperties() {

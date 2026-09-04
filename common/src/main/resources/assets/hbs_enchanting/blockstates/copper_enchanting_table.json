@@ -1,0 +1,5 @@
+{
+  "variants": {
+    "": { "model": "hbs_enchanting:block/copper_enchanting_table" }
+  }
+}
