@@ -1,6 +1,8 @@
 package com.holybuckets.enchanting.core;
 
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 import com.holybuckets.enchanting.externalapi.EnchantmentPowerInfo;
 import com.holybuckets.enchanting.externalapi.IEnchantInfoProvider;
@@ -13,8 +15,9 @@ import net.minecraft.util.RandomSource;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.enchantment.Enchantment;
-import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.item.enchantment.EnchantmentInstance;
+
+import static com.google.common.collect.Sets.combinations;
 
 /**
  * Hooks into Apotheosis selectEnchantment to return a set of enchantments
@@ -41,14 +44,18 @@ public class EnchantmentCalculator {
 
 
     //Mixin Enchantment Selector
-    //level is eterna which ranges from [0,50], but power goes to 300 so multiply by 4 to get the power range
-    public static List<EnchantmentInstance> select(ItemStack stack, int slot, int level,
+    //cost is 2*eterna value with some randomness. Eterna maxes out at 50, cost 100, max enchant levels can
+    //go up to 200
+    public static List<EnchantmentInstance> select(ItemStack stack, int slot, int cost,
                                                    float quanta, float arcana, float rectification,
                                                    List<EnchantmentInstance> rolled) {
-        RandomSource random = RandomSource.create(seedOf(stack, level));
-        List<EnchantmentInstance> selected = Eterna.getValidEnchantments(random, stack, level*4);
+        RandomSource random = RandomSource.create(seedOf(stack, slot));
+        List<EnchantmentInstance> selected = Eterna.getValidEnchantments(random, stack, cost);
         if (selected.isEmpty()) return rolled;
-        return selected;
+        List<List<EnchantmentInstance>> options = Quanta.getOptions(random, quanta, selected);
+        if (options.isEmpty()) return rolled;
+        int permIndex = Quanta.REROLLS.getOrDefault(stack, new AtomicInteger(0)).getAndIncrement() % options.size();
+        return options.get(permIndex);
     }
 
     /** Stable across repeat calls for the same roll; identity hashes are deliberately avoided. */
@@ -68,6 +75,23 @@ public class EnchantmentCalculator {
             MAX_LEVELS.put(Enchantment.Rarity.VERY_RARE, 1);
         }
 
+        //Eterna used to price each stack, so later stages can read the table's power
+        private static final Map<ItemStack, Float> ETERNA_BY_STACK = new WeakHashMap<>();
+
+        public static float getEterna(ItemStack stack) {
+            return ETERNA_BY_STACK.getOrDefault(stack, 0f);
+        }
+
+        //Mixin cost hook: normal distribution, mean = eterna * 2, stdDev = mean / 6
+        public static int getEnchantmentCost(RandomSource random, int slot, float eterna, ItemStack stack) {
+            ETERNA_BY_STACK.put(stack, eterna);
+
+            float mean = eterna * 2f;
+            float stdDev = mean / 6f;
+            float gaussian = mean + (float) new Random(seedOf(stack, slot)).nextGaussian() * stdDev;
+            return Math.max(1, Math.round(gaussian));
+        }
+
         public static List<EnchantmentInstance> getValidEnchantments(RandomSource random, ItemStack stack, int power) {
             Map<Enchantment, EnchantmentPowerInfo> availableEnchants = ENCHANT_INFO.getAllValidFor(stack);
             List<EnchantmentInstance> valid = new ArrayList<>();
@@ -77,9 +101,8 @@ public class EnchantmentCalculator {
                 EnchantmentPowerInfo info = entry.getValue();
                 int maxEnchantLevel = info.getMaxLevel();
                 int minPower = info.getMinPower(0);
-                int maxPower = info.getMaxPower(maxEnchantLevel);
-                int stdDev = (maxPower - minPower) / 6;
-                int rg = stdDev*3;
+                float stdDev = (power - minPower) / 6f;
+                float rg = stdDev*3;
                 for(int i=1 ; i <= info.getHighestLevelAt(Math.min(power+rg, IEnchantInfoProvider.MAX_POWER)); i++)
                 {
                     if(info.getMinPower(i) < Math.max(0, power-rg)) continue;
@@ -95,8 +118,9 @@ public class EnchantmentCalculator {
 
          private static int gaussEnchantLevel(RandomSource source, int curr, EnchantmentPowerInfo info, int maxEnchantLevel) {
             double mean = curr;
-            double range = info.getMaxPower(maxEnchantLevel) - info.getMinPower(0);
-            double step = range / maxEnchantLevel;
+            int currHighLevel = info.getHighestLevelAt(curr);
+            if(currHighLevel <= 0) return 0;
+            double range = info.getMinPower(currHighLevel) - info.getMinPower(currHighLevel-1);
             double stddev = range / 6.0; // 99.7% of values will fall within ±3 standard deviations
             double gaussian = source.nextGaussian() * stddev + mean;
             for(int i=0; i < maxEnchantLevel; i++) {
@@ -108,25 +132,42 @@ public class EnchantmentCalculator {
 
     public static class Quanta {
 
+        public static final Map<ItemStack, AtomicInteger> REROLLS = new HashMap<>();
         public static final float QUANTA_REROLL_COST = 5f;
-
         public static final int MAX_PERMUTATION_INPUT = 12;
+        private static final float enchantsPerEterna = 0.20f; // 10 enchants per 50 eterna
+        private static final float enchantsPerQuanta = 0.1f; // 10 enchants per 100 eternaa
+        private static final float levelCombinationCount = 0.5f; //an additional enchanting level counts as half a new enchantment
+
+        static void onServerStart(ServerStartingEvent event) {
+            REROLLS.clear();
+        }
 
         private Quanta() {}
 
-        //Number of enchantment permutations offered at quanta
-        public static int getOptionCount(float quanta) {
-            return Math.max(1, 1 + (int) Math.floor(Math.max(0f, quanta) / QUANTA_REROLL_COST));
+        //Total number of distinct enchantments permitted per item
+        public static int getMaxPermutationSize(float quanta, int eterna) {
+            int maxByEterna = Math.round(enchantsPerEterna * eterna);
+            int maxByQuanta = Math.round(enchantsPerQuanta * quanta);
+            return Math.max(1, maxByEterna+ maxByQuanta);
         }
 
         //Every non empty subset of the rolled enchantments, largest first.
         //Returns an empty list when the input is empty.
-        public static List<List<EnchantmentInstance>> getPermutations(List<EnchantmentInstance> enchantments) {
-            List<List<EnchantmentInstance>> permutations = new ArrayList<>();
+        private static List<Set<EnchantmentInstance>> getPermutations(List<EnchantmentInstance> enchantments,
+         int maxEnchantsPerCombination)
+        {
+            List<Set<EnchantmentInstance>> permutations = new ArrayList<>();
             if (enchantments.isEmpty()) return permutations;
 
-            int size = Math.min(enchantments.size(), MAX_PERMUTATION_INPUT);
-            int total = 1 << size;
+            int size = enchantments.size();
+            Set<EnchantmentInstance> set = new HashSet<>(enchantments);
+            Set<Enchantment> uniqueEnchs = enchantments.stream().map(ei -> ei.enchantment).collect(Collectors.toSet());
+            int uniqueEnchants = uniqueEnchs.size();
+            //calcualte total possible combinations, 5 choose 1, 5 choose 2, 5 choose 3, 5 choose 4, 5 choose 5
+            for(int i = 1; i <= uniqueEnchants; i++) {
+                permutations.addAll(combinations(set, i));
+            }
 
             for (int mask = 1; mask < total; mask++) {
                 List<EnchantmentInstance> subset = new ArrayList<>();
@@ -142,13 +183,15 @@ public class EnchantmentCalculator {
 
         //The options a player should see: the full rolled set first, then a random selection of the
         //remaining permutations up to the count allowed by quanta.
-        public static List<List<EnchantmentInstance>> getOptions(RandomSource random, float quanta,
-                                                                List<EnchantmentInstance> enchantments) {
-            List<List<EnchantmentInstance>> permutations = getPermutations(enchantments);
+        public static List<Set<EnchantmentInstance>> getOptions(RandomSource random, float quanta, int eterna,
+                                                                List<EnchantmentInstance> enchantments)
+        {
+            int count = Math.min(getMaxPermutationSize(quanta, eterna), enchantments.size());
+            List<Set<EnchantmentInstance>> permutations = getPermutations(enchantments, count);
             if (permutations.isEmpty()) return permutations;
 
-            int count = Math.min(getOptionCount(quanta), permutations.size());
-            List<List<EnchantmentInstance>> options = new ArrayList<>(count);
+
+            List<Set<EnchantmentInstance>> options = new ArrayList<>(count);
             options.add(permutations.remove(0));
 
             while (options.size() < count && !permutations.isEmpty()) {

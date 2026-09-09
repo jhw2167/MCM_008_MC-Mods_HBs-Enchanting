@@ -187,7 +187,7 @@ public abstract class MixinApothEnchantScreen {
     private static List<Component> quantaPopup(float quanta) {
         List<Component> list = new ArrayList<>();
         list.add(Component.literal(I18n.get("gui.hbs_enchanting.quanta.rerolls",
-            EnchantmentCalculator.Quanta.getOptionCount(quanta))).withStyle(ChatFormatting.BLUE));
+            EnchantmentCalculator.Quanta.getMaxPermutationSize(quanta))).withStyle(ChatFormatting.BLUE));
         return list;
     }
 

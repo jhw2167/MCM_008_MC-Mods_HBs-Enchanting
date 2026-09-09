@@ -9,7 +9,7 @@
   "gui.hbs_enchanting.eterna.desc": "Greater Eterna unlocks access to stronger Enchantments",
 
   "gui.hbs_enchanting.quanta": "Quanta - Enchanting Variety",
-  "gui.hbs_enchanting.quanta.desc": "Greater Quanta allows grants more enchanting rerolls",
+  "gui.hbs_enchanting.quanta.desc": "Greater Quanta allows rerolling your enchantments",
   "gui.hbs_enchanting.quanta.rerolls": "Rerolls remaining: %s",
 
   "gui.hbs_enchanting.arcana": "Arcana - Overleveling",

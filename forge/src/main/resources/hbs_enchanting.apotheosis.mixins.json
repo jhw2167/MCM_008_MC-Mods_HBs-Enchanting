@@ -7,7 +7,9 @@
     "mixins": [
         "MixinApothEnchantmentMenu",
         "ApothEnchantmentMenuAccessor",
-        "MixinApothEnchantmentMenuSelect"
+        "MixinApothEnchantmentMenuSelect",
+        "MixinRealEnchantmentHelper",
+        "MixinApothEnchantmentMenuLapis"
     ],
     "client": [
         "client.MixinApothEnchantScreen"
