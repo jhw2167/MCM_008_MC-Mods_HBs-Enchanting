@@ -32,12 +32,6 @@ public class ModMenus {
                 return null;
             });
 
-        initializeEnchantmentMenu(menus);
-    }
-
-    private static void initializeEnchantmentMenu(BalmMenus menus) {
-        enchantmentMenu = menus.registerMenu(id("enchantment_menu"),
-            (syncId, inventory, buf) -> new ModEnchantmentMenu(syncId, inventory, buf.readBoolean()));
     }
 
     private static ResourceLocation id(String name) {

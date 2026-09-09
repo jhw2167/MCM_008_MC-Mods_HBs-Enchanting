@@ -1,6 +1,7 @@
 package com.holybuckets.enchanting.block;
 
 import com.holybuckets.enchanting.Constants;
+import com.holybuckets.enchanting.config.model.EnchantingTierCaps;
 import net.blay09.mods.balm.api.Balm;
 import net.blay09.mods.balm.api.block.BalmBlocks;
 import net.minecraft.resources.ResourceLocation;
@@ -9,6 +10,7 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
+import net.minecraft.world.level.block.state.BlockState;
 
 public class ModBlocks {
 
@@ -29,6 +31,14 @@ public class ModBlocks {
         }
         */
 
+    }
+
+    /** Tier of the enchanting table at this state; see EnchantingTierCaps for the tier constants. */
+    public static int getTableTier(BlockState state) {
+        if (state == null) return EnchantingTierCaps.TIER_NORMAL;
+        Block block = state.getBlock();
+        if (block == copperEnchantingTable) return EnchantingTierCaps.TIER_COPPER;
+        return EnchantingTierCaps.TIER_NORMAL;
     }
 
     private static BlockItem itemBlock(Block block) {

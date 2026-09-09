@@ -1,7 +1,7 @@
 package com.holybuckets.enchanting.core;
 
 import com.holybuckets.enchanting.LoggerProject;
-import com.holybuckets.enchanting.config.EnchantingBlockPower;
+import com.holybuckets.enchanting.config.json.EnchantingTableJsonConfig;
 import com.holybuckets.enchanting.config.ModConfig;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -26,12 +26,12 @@ public class EnchantingPowerCalculator {
     /**
      * @param maxPower hard cap on the returned power; 0 or less means uncapped
      */
-    public static int getPower(Level level, BlockPos tablePos, int maxPower) {
-        Map<String, Integer> counts = countPowerBlocks(level, tablePos, ModConfig.getInstance().getSearchRadius());
+    public static int getPower(Level level, BlockPos tablePos, int radius, int maxPower) {
+        Map<String, Integer> counts = countPowerBlocks(level, tablePos, radius);
 
         float power = 0f;
         for (Map.Entry<String, Integer> entry : counts.entrySet()) {
-            EnchantingBlockPower.BlockPower blockPower = ModConfig.getInstance().getBlockPower(entry.getKey());
+            EnchantingTableJsonConfig.BlockPower blockPower = ModConfig.getInstance().getBlockPower(entry.getKey());
             if (blockPower == null) continue;
             power += blockPower.contribution(entry.getValue());
         }
@@ -42,7 +42,7 @@ public class EnchantingPowerCalculator {
 
         LoggerProject.logDebug(CLASS_ID + "001", String.format(
             "Enchanting power at %s: %d (cap %d, radius %d, configured blocks %d) from %s",
-            tablePos, total, maxPower, ModConfig.getInstance().getSearchRadius(),
+            tablePos, total, maxPower, radius,
             ModConfig.getInstance().getBlockPowers().size(), counts));
 
         return total;

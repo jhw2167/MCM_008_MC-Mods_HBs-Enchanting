@@ -1,4 +1,4 @@
-package com.holybuckets.enchanting.config;
+package com.holybuckets.enchanting.config.json;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -6,6 +6,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.holybuckets.enchanting.config.model.EnchantingTierCaps;
 import com.holybuckets.foundation.modelInterface.IStringSerializable;
 
 import javax.annotation.Nullable;
@@ -15,35 +16,31 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-public class EnchantingBlockPower implements IStringSerializable {
+public class EnchantingTableJsonConfig implements IStringSerializable {
 
     public static final String DEF_CONFIG_FILE_PATH = "config/HBsEnchantingOverhaulConfig.json";
     public static final String ROOT_KEY = "enchantingBlockPower";
 
-    public static final String SEARCH_RADIUS_KEY = "searchRadius";
-    public static final String STANDARD_MAX_POWER_KEY = "standardTableMaxPower";
-    public static final String COPPER_MAX_POWER_KEY = "copperTableMaxPower";
-
-    public static final int DEF_SEARCH_RADIUS = 16;
-    public static final int DEF_STANDARD_MAX_POWER = 0;
-    public static final int DEF_COPPER_MAX_POWER = 15;
-
-    public static final int MAX_SEARCH_RADIUS = 32;
+    public static final String TIER_CAPS_KEY = "enchantingTables";
+    public static final String BLOCK_STATS_KEY = "blockEnchantingStats";
 
     private final Map<String, BlockPower> powerMap;
 
-    private int searchRadius = DEF_SEARCH_RADIUS;
-    private int standardTableMaxPower = DEF_STANDARD_MAX_POWER;
-    private int copperTableMaxPower = DEF_COPPER_MAX_POWER;
+    private final Map<Integer, EnchantingTierCaps> tierCaps = new LinkedHashMap<>();
+    private final List<BlockEnchantingStatsJsonConfig> blockStats = new ArrayList<>();
 
-    public EnchantingBlockPower(List<BlockPower> entries) {
+    public EnchantingTableJsonConfig(List<BlockPower> entries) {
         this.powerMap = new LinkedHashMap<>();
         if (entries != null) {
             entries.forEach(e -> powerMap.put(e.getBlock(), e));
         }
+        for (int tier = EnchantingTierCaps.TIER_COPPER; tier <= EnchantingTierCaps.TIER_NETHERITE; tier++) {
+            tierCaps.put(tier, EnchantingTierCaps.getDefault(tier));
+        }
+        blockStats.addAll(DefaultBlockEnchantingStats.build());
     }
 
-    public EnchantingBlockPower(String jsonString) {
+    public EnchantingTableJsonConfig(String jsonString) {
         this(List.of());
         deserialize(jsonString);
     }
@@ -73,28 +70,31 @@ public class EnchantingBlockPower implements IStringSerializable {
         powerMap.remove(blockId);
     }
 
-    /** Radius, in blocks, that an enchanting table scans for power providing blocks. */
-    public int getSearchRadius() {
-        return searchRadius;
+    /** Raw block stat entries; resolve them against the registry once the server is up. */
+    public List<BlockEnchantingStatsJsonConfig> getBlockStatConfigs() {
+        return Collections.unmodifiableList(blockStats);
     }
 
-    /** Hard cap on the enchanting power of a standard enchanting table; 0 or less means uncapped. */
-    public int getStandardTableMaxPower() {
-        return standardTableMaxPower;
-    }
-
-    /** Hard cap on the enchanting power of a copper enchanting table; 0 or less means uncapped. */
-    public int getCopperTableMaxPower() {
-        return copperTableMaxPower;
+    /** Radius and stat ceilings for the given table tier; falls back to that tier's defaults. */
+    public EnchantingTierCaps getTierCaps(int tier) {
+        return tierCaps.getOrDefault(tier, EnchantingTierCaps.getDefault(tier));
     }
 
 
     @Override
     public String serialize() {
         JsonObject root = new JsonObject();
-        root.addProperty(SEARCH_RADIUS_KEY, searchRadius);
-        root.addProperty(STANDARD_MAX_POWER_KEY, standardTableMaxPower);
-        root.addProperty(COPPER_MAX_POWER_KEY, copperTableMaxPower);
+        JsonArray caps = new JsonArray();
+        for (EnchantingTierCaps tierCap : tierCaps.values()) {
+            caps.add(tierCap.serialize());
+        }
+        root.add(TIER_CAPS_KEY, caps);
+
+        JsonArray stats = new JsonArray();
+        for (BlockEnchantingStatsJsonConfig bes : blockStats) {
+            stats.add(bes.serialize());
+        }
+        root.add(BLOCK_STATS_KEY, stats);
 
         JsonArray entries = new JsonArray();
         for (BlockPower bp : powerMap.values()) {
@@ -119,14 +119,12 @@ public class EnchantingBlockPower implements IStringSerializable {
                 throw new RuntimeException("Root JSON object is missing required array '" + ROOT_KEY + "'");
             }
 
-            if (root.has(SEARCH_RADIUS_KEY)) {
-                this.searchRadius = Math.max(0, Math.min(MAX_SEARCH_RADIUS, root.get(SEARCH_RADIUS_KEY).getAsInt()));
+            if (root.has(TIER_CAPS_KEY) && root.get(TIER_CAPS_KEY).isJsonArray()) {
+                parseTierCaps(root.getAsJsonArray(TIER_CAPS_KEY));
             }
-            if (root.has(STANDARD_MAX_POWER_KEY)) {
-                this.standardTableMaxPower = root.get(STANDARD_MAX_POWER_KEY).getAsInt();
-            }
-            if (root.has(COPPER_MAX_POWER_KEY)) {
-                this.copperTableMaxPower = root.get(COPPER_MAX_POWER_KEY).getAsInt();
+
+            if (root.has(BLOCK_STATS_KEY) && root.get(BLOCK_STATS_KEY).isJsonArray()) {
+                parseBlockStats(root.getAsJsonArray(BLOCK_STATS_KEY));
             }
 
             parseArray(root.getAsJsonArray(ROOT_KEY));
@@ -134,6 +132,23 @@ public class EnchantingBlockPower implements IStringSerializable {
             throw e;
         } catch (Exception e) {
             throw new RuntimeException("Invalid JSON format for EnchantingBlockPower", e);
+        }
+    }
+
+    private void parseTierCaps(JsonArray array) {
+        for (JsonElement element : array) {
+            if (!element.isJsonObject()) continue;
+            EnchantingTierCaps caps = EnchantingTierCaps.deserialize(element.getAsJsonObject());
+            tierCaps.put(caps.getTier(), caps);
+        }
+    }
+
+    private void parseBlockStats(JsonArray array) {
+        blockStats.clear();
+        for (JsonElement element : array) {
+            if (!element.isJsonObject()) continue;
+            BlockEnchantingStatsJsonConfig stats = BlockEnchantingStatsJsonConfig.deserialize(element.getAsJsonObject());
+            if (!stats.getBlockName().isEmpty()) blockStats.add(stats);
         }
     }
 
@@ -148,7 +163,7 @@ public class EnchantingBlockPower implements IStringSerializable {
     }
 
 
-    public static EnchantingBlockPower buildDefaultConfig() {
+    public static EnchantingTableJsonConfig buildDefaultConfig() {
         List<BlockPower> entries = new ArrayList<>();
         entries.add(new BlockPower("minecraft:bookshelf", 15, 15));
         entries.add(new BlockPower("apotheosis:sea_shelf", 10, 25));
@@ -157,7 +172,7 @@ public class EnchantingBlockPower implements IStringSerializable {
         entries.add(new BlockPower("apotheosis:rectifier_t3", 1, 24));
         entries.add(new BlockPower("apotheosis:hellshelf", 12, 18));
         entries.add(new BlockPower("apotheosis:infused_hellshelf", 6, 22));
-        return new EnchantingBlockPower(entries);
+        return new EnchantingTableJsonConfig(entries);
     }
 
 

@@ -1,6 +1,10 @@
 package com.holybuckets.enchanting.config;
 
 import com.holybuckets.enchanting.LoggerProject;
+import com.holybuckets.enchanting.config.json.BlockEnchantingStatsJsonConfig;
+import com.holybuckets.enchanting.config.json.EnchantingTableJsonConfig;
+import com.holybuckets.enchanting.config.model.BlockEnchantingStats;
+import com.holybuckets.enchanting.config.model.EnchantingTierCaps;
 import com.holybuckets.foundation.HBUtil;
 import com.holybuckets.foundation.event.EventRegistrar;
 import net.blay09.mods.balm.api.Balm;
@@ -8,7 +12,11 @@ import net.blay09.mods.balm.api.event.EventPriority;
 import net.blay09.mods.balm.api.event.server.ServerStartingEvent;
 import net.blay09.mods.balm.api.event.server.ServerStoppedEvent;
 
+import net.minecraft.world.level.block.Block;
+
 import javax.annotation.Nullable;
+import java.util.HashMap;
+import java.util.Map;
 import java.io.File;
 import java.util.Collection;
 
@@ -17,7 +25,8 @@ public class ModConfig {
     private static final String CLASS_ID = "012";
     private static ModConfig INSTANCE;
 
-    private EnchantingBlockPower enchantingBlockPower;
+    private EnchantingTableJsonConfig enchantingBlockPower;
+    private final Map<Block, BlockEnchantingStats> blockStats = new HashMap<>();
 
     public static ModConfig getInstance() {
         if (INSTANCE == null) INSTANCE = new ModConfig();
@@ -33,32 +42,32 @@ public class ModConfig {
     }
 
 
-    public EnchantingBlockPower getEnchantingBlockPower() {
+    public EnchantingTableJsonConfig getEnchantingBlockPower() {
         return enchantingBlockPower;
     }
 
-    public Collection<EnchantingBlockPower.BlockPower> getBlockPowers() {
+    public Collection<EnchantingTableJsonConfig.BlockPower> getBlockPowers() {
         return enchantingBlockPower == null ? java.util.List.of() : enchantingBlockPower.getAll().values();
     }
 
     @Nullable
-    public EnchantingBlockPower.BlockPower getBlockPower(String blockId) {
+    public EnchantingTableJsonConfig.BlockPower getBlockPower(String blockId) {
         return enchantingBlockPower == null ? null : enchantingBlockPower.get(blockId);
     }
 
-    public int getSearchRadius() {
-        return enchantingBlockPower == null
-            ? EnchantingBlockPower.DEF_SEARCH_RADIUS : enchantingBlockPower.getSearchRadius();
+    /** Resolved once the block registry is available; keyed by Block so lookups skip the registry. */
+    @Nullable
+    public BlockEnchantingStats getBlockStats(Block block) {
+        return blockStats.get(block);
     }
 
-    public int getStandardTableMaxPower() {
-        return enchantingBlockPower == null
-            ? EnchantingBlockPower.DEF_STANDARD_MAX_POWER : enchantingBlockPower.getStandardTableMaxPower();
+    public boolean hasBlockStats(Block block) {
+        return blockStats.containsKey(block);
     }
 
-    public int getCopperTableMaxPower() {
+    public EnchantingTierCaps getTierCaps(int tier) {
         return enchantingBlockPower == null
-            ? EnchantingBlockPower.DEF_COPPER_MAX_POWER : enchantingBlockPower.getCopperTableMaxPower();
+            ? EnchantingTierCaps.getDefault(tier) : enchantingBlockPower.getTierCaps(tier);
     }
 
 
@@ -67,27 +76,47 @@ public class ModConfig {
         String configPath = activeConfig.enchantingBlockPowerConfig;
 
         File configFile = new File(configPath);
-        File defaultConfigFile = new File(EnchantingBlockPower.DEF_CONFIG_FILE_PATH);
+        File defaultConfigFile = new File(EnchantingTableJsonConfig.DEF_CONFIG_FILE_PATH);
 
         String json = HBUtil.FileIO.loadJsonConfigs(
             configFile,
             defaultConfigFile,
-            EnchantingBlockPower.buildDefaultConfig()
+            EnchantingTableJsonConfig.buildDefaultConfig()
         );
 
         try {
-            this.enchantingBlockPower = new EnchantingBlockPower(json);
+            this.enchantingBlockPower = new EnchantingTableJsonConfig(json);
         } catch (RuntimeException e) {
             String msg = String.format(
                 "Failed to parse user enchanting block-power config JSON: %s. Error:\n %s.\n\nDefault configs will be applied",
                 configFile.getAbsolutePath(), e.getCause());
             LoggerProject.logError(CLASS_ID + "002", msg);
-            this.enchantingBlockPower = new EnchantingBlockPower(
-                EnchantingBlockPower.buildDefaultConfig().serialize());
+            this.enchantingBlockPower = new EnchantingTableJsonConfig(
+                EnchantingTableJsonConfig.buildDefaultConfig().serialize());
         }
+
+        resolveBlockStats();
 
         LoggerProject.logInfo(CLASS_ID + "001",
             "Parsed " + enchantingBlockPower.size() + " enchanting block-power entrie(s)");
+    }
+
+    /** Turns configured block names into Blocks; the registry is populated by server start. */
+    private void resolveBlockStats() {
+        blockStats.clear();
+        int skipped = 0;
+
+        for (BlockEnchantingStatsJsonConfig config : enchantingBlockPower.getBlockStatConfigs()) {
+            BlockEnchantingStats stats = config.resolve();
+            if (stats == null) {
+                skipped++;
+                continue;
+            }
+            blockStats.put(stats.getBlock(), stats);
+        }
+
+        LoggerProject.logInfo(CLASS_ID + "003",
+            "Resolved " + blockStats.size() + " block enchanting stat entrie(s), skipped " + skipped);
     }
 
     private void onServerStopped() {

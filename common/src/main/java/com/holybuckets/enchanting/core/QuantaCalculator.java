@@ -7,29 +7,21 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
-/**
- * Quanta widens the enchantment choice: instead of a single rolled outcome, the permutations of
- * the rolled enchantment set are offered to the player as separate options. Higher quanta surfaces
- * more of those permutations.
- */
 public class QuantaCalculator {
 
-    /** Option count is 1 at zero quanta and grows by one per this many quanta. */
-    public static final float QUANTA_PER_OPTION = 10f;
-    /** Guard against combinatorial explosion; 2^12 subsets is already far more than is usable. */
+    public static final float QUANTA_REROLL_COST = 5f;
+
     public static final int MAX_PERMUTATION_INPUT = 12;
 
     private QuantaCalculator() {}
 
-    /** How many permutations should be offered at the given quanta. */
+    //Number of enchantment permutations offered at quanta
     public static int getOptionCount(float quanta) {
-        return Math.max(1, 1 + (int) Math.floor(Math.max(0f, quanta) / QUANTA_PER_OPTION));
+        return Math.max(1, 1 + (int) Math.floor(Math.max(0f, quanta) / QUANTA_REROLL_COST));
     }
 
-    /**
-     * Every non empty subset of the rolled enchantments, largest first.
-     * Returns an empty list when the input is empty.
-     */
+    //Every non empty subset of the rolled enchantments, largest first.
+    //Returns an empty list when the input is empty.
     public static List<List<EnchantmentInstance>> getPermutations(List<EnchantmentInstance> enchantments) {
         List<List<EnchantmentInstance>> permutations = new ArrayList<>();
         if (enchantments.isEmpty()) return permutations;
@@ -49,10 +41,8 @@ public class QuantaCalculator {
         return permutations;
     }
 
-    /**
-     * The options a player should see: the full rolled set first, then a random selection of the
-     * remaining permutations up to the count allowed by quanta.
-     */
+    //The options a player should see: the full rolled set first, then a random selection of the
+    //remaining permutations up to the count allowed by quanta.
     public static List<List<EnchantmentInstance>> getOptions(RandomSource random, float quanta,
                                                             List<EnchantmentInstance> enchantments) {
         List<List<EnchantmentInstance>> permutations = getPermutations(enchantments);

@@ -3,7 +3,10 @@ package com.holybuckets.enchanting;
 
 import com.holybuckets.foundation.event.EventRegistrar;
 import com.holybuckets.enchanting.config.EnchantingConfig;
+import com.holybuckets.enchanting.block.ModBlocks;
+import com.holybuckets.enchanting.block.be.BlockEntityTypes;
 import com.holybuckets.enchanting.config.ModConfig;
+import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.blay09.mods.balm.api.event.server.ServerStartingEvent;
 
 /**
@@ -39,6 +42,11 @@ public class EnchantingMain {
         //ChallengeBlockBehavior.init(registrar);
 
         ModConfig.init(registrar);
+
+        //Apotheosis resets the enchanting table block entity type's valid blocks during its own
+        //setup, which drops the copper table; put it back once every level is loading.
+        registrar.registerOnLevelLoad(e -> BlockEntityTypes.addValidBlock(
+            BlockEntityType.ENCHANTING_TABLE, ModBlocks.copperEnchantingTable));
 
         //register local events
         registrar.registerOnBeforeServerStarted(this::onServerStarting);
