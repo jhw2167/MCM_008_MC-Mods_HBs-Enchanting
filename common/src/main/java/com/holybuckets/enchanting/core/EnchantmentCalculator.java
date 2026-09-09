@@ -2,7 +2,6 @@ package com.holybuckets.enchanting.core;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
 
 import com.holybuckets.enchanting.externalapi.EnchantmentPowerInfo;
 import com.holybuckets.enchanting.externalapi.IEnchantInfoProvider;
@@ -16,6 +15,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.EnchantmentInstance;
+import org.apache.commons.lang3.tuple.Pair;
 
 import static com.google.common.collect.Sets.combinations;
 
@@ -38,9 +38,33 @@ public class EnchantmentCalculator {
         ENCHANT_INFO = (IEnchantInfoProvider) Balm.platformProxy()
             .withForge("com.holybuckets.enchanting.externalapi.ForgeEnchantInfo")
             .build();
+
+        reg.registerOnBeforeServerStarted(Quanta::onServerStart);
+        reg.registerOnBeforeServerStarted(Eterna::onServerStart);
     }
 
     private EnchantmentCalculator() {}
+
+    /**
+     * True only for the single select call that actually enchants the item.
+     * <p>
+     * slotsChanged recalculates all three rows for the clues every time the container reports a
+     * change, so select runs many times per interaction. clickMenuButton raises this flag, the
+     * first select call consumes it, and the slotsChanged pass that clickMenuButton triggers
+     * afterwards sees it cleared again.
+     */
+    private static boolean applying = false;
+
+    public static void markApplying(boolean value) {
+        applying = value;
+    }
+
+    /** Reads and clears the flag; only the enchant call sees true. */
+    public static boolean consumeApplying() {
+        boolean value = applying;
+        applying = false;
+        return value;
+    }
 
 
     //Mixin Enchantment Selector
@@ -50,12 +74,17 @@ public class EnchantmentCalculator {
                                                    float quanta, float arcana, float rectification,
                                                    List<EnchantmentInstance> rolled) {
         RandomSource random = RandomSource.create(seedOf(stack, slot));
+        float eterna = Eterna.getEterna(stack);
+
+        if(Quanta.REROLLS.containsKey(stack)) {
+            return Quanta.getCachedOptions(stack, slot, consumeApplying());
+        }
         List<EnchantmentInstance> selected = Eterna.getValidEnchantments(random, stack, cost);
         if (selected.isEmpty()) return rolled;
-        List<List<EnchantmentInstance>> options = Quanta.getOptions(random, quanta, selected);
-        if (options.isEmpty()) return rolled;
-        int permIndex = Quanta.REROLLS.getOrDefault(stack, new AtomicInteger(0)).getAndIncrement() % options.size();
-        return options.get(permIndex);
+
+        List<EnchantmentInstance> options = Quanta.getOptions(random, stack, quanta, eterna, selected);
+
+        return options;
     }
 
     /** Stable across repeat calls for the same roll; identity hashes are deliberately avoided. */
@@ -132,73 +161,105 @@ public class EnchantmentCalculator {
 
     public static class Quanta {
 
-        public static final Map<ItemStack, AtomicInteger> REROLLS = new HashMap<>();
+        public static final Map<ItemStack,Pair<List<Set<EnchantmentInstance>>, AtomicInteger>> REROLLS = new HashMap<>();
         public static final float QUANTA_REROLL_COST = 5f;
         public static final int MAX_PERMUTATION_INPUT = 12;
-        private static final float enchantsPerEterna = 0.20f; // 10 enchants per 50 eterna
-        private static final float enchantsPerQuanta = 0.1f; // 10 enchants per 100 eternaa
+        private static final float enchantsPerEterna = 0.25f; // 10 enchants per 50 eterna
+        private static final float enchantsPerQuanta = 0.125f; // 10 enchants per 100 eternaa
         private static final float levelCombinationCount = 0.5f; //an additional enchanting level counts as half a new enchantment
+        private static final Map<Enchantment.Rarity, Float> rarityCombinationCounts = new HashMap<>();
 
         static void onServerStart(ServerStartingEvent event) {
             REROLLS.clear();
+            rarityCombinationCounts.put(Enchantment.Rarity.COMMON, 0.5f);
+            rarityCombinationCounts.put(Enchantment.Rarity.UNCOMMON, 1f);
+            rarityCombinationCounts.put(Enchantment.Rarity.RARE, 2f);
+            rarityCombinationCounts.put(Enchantment.Rarity.VERY_RARE, 4f);
         }
 
         private Quanta() {}
 
         //Total number of distinct enchantments permitted per item
-        public static int getMaxPermutationSize(float quanta, int eterna) {
-            int maxByEterna = Math.round(enchantsPerEterna * eterna);
-            int maxByQuanta = Math.round(enchantsPerQuanta * quanta);
-            return Math.max(1, maxByEterna+ maxByQuanta);
+        public static float getMaxCombinationsCount(float quanta, float eterna) {
+            float maxByEterna = enchantsPerEterna * eterna;
+            float maxByQuanta = enchantsPerQuanta * quanta;
+            return Math.max(1f, maxByEterna+maxByQuanta);
         }
 
         //Every non empty subset of the rolled enchantments, largest first.
         //Returns an empty list when the input is empty.
-        private static List<Set<EnchantmentInstance>> getPermutations(List<EnchantmentInstance> enchantments,
-         int maxEnchantsPerCombination)
+        private static List<Set<EnchantmentInstance>> getCombinations(List<EnchantmentInstance> enchantments,
+                                                                      float maxEnchantsPerCombination)
         {
             List<Set<EnchantmentInstance>> permutations = new ArrayList<>();
             if (enchantments.isEmpty()) return permutations;
 
             int size = enchantments.size();
             Set<EnchantmentInstance> set = new HashSet<>(enchantments);
-            Set<Enchantment> uniqueEnchs = enchantments.stream().map(ei -> ei.enchantment).collect(Collectors.toSet());
-            int uniqueEnchants = uniqueEnchs.size();
-            //calcualte total possible combinations, 5 choose 1, 5 choose 2, 5 choose 3, 5 choose 4, 5 choose 5
-            for(int i = 1; i <= uniqueEnchants; i++) {
-                permutations.addAll(combinations(set, i));
-            }
 
-            for (int mask = 1; mask < total; mask++) {
-                List<EnchantmentInstance> subset = new ArrayList<>();
-                for (int i = 0; i < size; i++) {
-                    if ((mask & (1 << i)) != 0) subset.add(enchantments.get(i));
+            int maxPerSet = Math.min((int)maxEnchantsPerCombination, 10);
+            Set<Set<EnchantmentInstance>> combinations = new HashSet<>();
+            for(int i = 1; i <= maxPerSet; i++) {
+                combinations.addAll(combinations(set, i));
+            }
+            Iterator<Set<EnchantmentInstance>> iterator = combinations.iterator();
+            while(iterator.hasNext())
+            {
+                Set<EnchantmentInstance> combination = iterator.next();
+                float weightedCount = 0;
+                Set<Enchantment> uniqueEnchantsInCombination = new HashSet<>();
+                for(EnchantmentInstance ei : combination) {
+                    weightedCount += rarityCombinationCounts.getOrDefault(ei.enchantment.getRarity(), 1f);
+                    weightedCount += ei.level * levelCombinationCount;
+                     if(weightedCount >= maxEnchantsPerCombination) break;
+                   if(!uniqueEnchantsInCombination.add(ei.enchantment)) break;
                 }
-                permutations.add(subset);
+                if(weightedCount>maxEnchantsPerCombination) continue;
+                if(uniqueEnchantsInCombination.size()<combination.size()) continue;
+
+                permutations.add(combination);
             }
 
-            permutations.sort(Comparator.comparingInt((List<EnchantmentInstance> l) -> l.size()).reversed());
             return permutations;
         }
 
         //The options a player should see: the full rolled set first, then a random selection of the
         //remaining permutations up to the count allowed by quanta.
-        public static List<Set<EnchantmentInstance>> getOptions(RandomSource random, float quanta, int eterna,
+        public static List<EnchantmentInstance> getOptions(RandomSource random,
+        ItemStack stack,  float quanta, float eterna,
                                                                 List<EnchantmentInstance> enchantments)
         {
-            int count = Math.min(getMaxPermutationSize(quanta, eterna), enchantments.size());
-            List<Set<EnchantmentInstance>> permutations = getPermutations(enchantments, count);
-            if (permutations.isEmpty()) return permutations;
 
+            float count = Math.min(getMaxCombinationsCount(quanta, eterna), enchantments.size());
+            List<Set<EnchantmentInstance>> combinations = getCombinations(enchantments, count);
+            if(combinations.isEmpty()) return Collections.emptyList();
 
-            List<Set<EnchantmentInstance>> options = new ArrayList<>(count);
-            options.add(permutations.remove(0));
+            int rerolls = rerollsAtQuanta(quanta);
+            Collections.shuffle(combinations, new Random(random.nextLong()));
 
-            while (options.size() < count && !permutations.isEmpty()) {
-                options.add(permutations.remove(random.nextInt(permutations.size())));
+            var list  = combinations.subList(0, Math.min(rerolls, combinations.size()));
+            REROLLS.put(stack, Pair.of(list, new AtomicInteger(0)));
+
+            return getCachedOptions(stack, 0, consumeApplying());
+        }
+
+        public static Integer rerollsAtQuanta(float quanta) {
+            return ((int) (quanta / QUANTA_REROLL_COST))+1;
+        }
+
+        public static List<EnchantmentInstance> getCachedOptions(ItemStack stack, int slot, boolean consume) {
+            if(!REROLLS.containsKey(stack)) return Collections.emptyList();
+            Pair<List<Set<EnchantmentInstance>>, AtomicInteger> rerolls = REROLLS.get(stack);
+            var enchants = rerolls.getLeft();
+            AtomicInteger index = rerolls.getRight();
+
+            if(consume) {
+                int idx = (index.intValue()+slot) % enchants.size();
+                return new ArrayList<>(enchants.get(idx));
             }
-
-            return options;
+            if(slot==0) index.incrementAndGet();
+            int idx = (index.intValue()+slot) % enchants.size();
+            return new ArrayList<>(enchants.get(idx));
         }
     }
 
