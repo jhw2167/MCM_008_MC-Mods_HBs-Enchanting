@@ -1,13 +1,11 @@
 package com.holybuckets.enchanting.config.model;
 
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-
 /**
  * Per tier settings for an enchanting table: how far it searches for stat providing blocks, and
  * the ceiling it puts on each of the three enchanting stats.
  * <p>
- * Every field is an Integer so a partial config object defaults the values it leaves out.
+ * Every constructor field is an Integer so a partial config object defaults what it leaves out.
+ * Attribute names and serialization live in EnchantingTableJsonConfig.
  */
 public class EnchantingTierCaps {
 
@@ -80,37 +78,5 @@ public class EnchantingTierCaps {
             case TIER_NETHERITE -> 50;
             default -> 25;
         };
-    }
-
-    public JsonObject serialize() {
-        JsonObject obj = new JsonObject();
-        obj.addProperty("tier", tier);
-        obj.addProperty("radius", radius);
-        obj.addProperty("eternaMax", eternaMax);
-        obj.addProperty("quantaMax", quantaMax);
-        obj.addProperty("arcanaMax", arcanaMax);
-        return obj;
-    }
-
-    public static EnchantingTierCaps deserialize(JsonObject obj) {
-        return new EnchantingTierCaps(
-            asInt(obj, "tier"),
-            asInt(obj, "radius"),
-            asInt(obj, "eternaMax"),
-            asInt(obj, "quantaMax"),
-            asInt(obj, "arcanaMax"));
-    }
-
-    public static EnchantingTierCaps fromJson(String json) {
-        if (json == null || json.isBlank()) return getDefault(TIER_NORMAL);
-        return deserialize(JsonParser.parseString(json).getAsJsonObject());
-    }
-
-    public String toJson() {
-        return serialize().toString();
-    }
-
-    private static Integer asInt(JsonObject obj, String key) {
-        return obj.has(key) && !obj.get(key).isJsonNull() ? obj.get(key).getAsInt() : null;
     }
 }

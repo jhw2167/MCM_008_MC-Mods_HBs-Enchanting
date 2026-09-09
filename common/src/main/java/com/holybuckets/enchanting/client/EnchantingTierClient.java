@@ -1,6 +1,7 @@
 package com.holybuckets.enchanting.client;
 
 import com.holybuckets.enchanting.LoggerProject;
+import com.holybuckets.enchanting.config.json.EnchantingTableJsonConfig;
 import com.holybuckets.enchanting.config.model.EnchantingTierCaps;
 import com.holybuckets.foundation.client.ClientEventRegistrar;
 import com.holybuckets.foundation.event.custom.SimpleMessageEvent;
@@ -26,7 +27,7 @@ public class EnchantingTierClient {
 
     private static void onTierMessage(SimpleMessageEvent event) {
         try {
-            caps = EnchantingTierCaps.fromJson(event.getContent());
+            caps = EnchantingTableJsonConfig.fromJson(event.getContent());
         } catch (RuntimeException e) {
             LoggerProject.logError(CLASS_ID + "001",
                 "Could not read enchanting tier payload: " + event.getContent());

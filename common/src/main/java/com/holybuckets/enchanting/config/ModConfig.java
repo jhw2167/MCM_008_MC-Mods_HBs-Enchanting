@@ -1,5 +1,8 @@
 package com.holybuckets.enchanting.config;
 
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.holybuckets.enchanting.LoggerProject;
 import com.holybuckets.enchanting.config.json.BlockEnchantingStatsJsonConfig;
 import com.holybuckets.enchanting.config.json.EnchantingTableJsonConfig;
@@ -7,6 +10,7 @@ import com.holybuckets.enchanting.config.model.BlockEnchantingStats;
 import com.holybuckets.enchanting.config.model.EnchantingTierCaps;
 import com.holybuckets.foundation.HBUtil;
 import com.holybuckets.foundation.event.EventRegistrar;
+import com.holybuckets.foundation.modelInterface.IStringSerializable;
 import net.blay09.mods.balm.api.Balm;
 import net.blay09.mods.balm.api.event.EventPriority;
 import net.blay09.mods.balm.api.event.server.ServerStartingEvent;
@@ -16,16 +20,16 @@ import net.minecraft.world.level.block.Block;
 
 import javax.annotation.Nullable;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.io.File;
-import java.util.Collection;
 
 public class ModConfig {
 
     private static final String CLASS_ID = "012";
     private static ModConfig INSTANCE;
 
-    private EnchantingTableJsonConfig enchantingBlockPower;
+    private final Map<Integer, EnchantingTierCaps> tierCaps = new HashMap<>();
     private final Map<Block, BlockEnchantingStats> blockStats = new HashMap<>();
 
     public static ModConfig getInstance() {
@@ -42,18 +46,6 @@ public class ModConfig {
     }
 
 
-    public EnchantingTableJsonConfig getEnchantingBlockPower() {
-        return enchantingBlockPower;
-    }
-
-    public Collection<EnchantingTableJsonConfig.BlockPower> getBlockPowers() {
-        return enchantingBlockPower == null ? java.util.List.of() : enchantingBlockPower.getAll().values();
-    }
-
-    @Nullable
-    public EnchantingTableJsonConfig.BlockPower getBlockPower(String blockId) {
-        return enchantingBlockPower == null ? null : enchantingBlockPower.get(blockId);
-    }
 
     /** Resolved once the block registry is available; keyed by Block so lookups skip the registry. */
     @Nullable
@@ -66,8 +58,7 @@ public class ModConfig {
     }
 
     public EnchantingTierCaps getTierCaps(int tier) {
-        return enchantingBlockPower == null
-            ? EnchantingTierCaps.getDefault(tier) : enchantingBlockPower.getTierCaps(tier);
+        return tierCaps.getOrDefault(tier, EnchantingTierCaps.getDefault(tier));
     }
 
 
@@ -78,35 +69,38 @@ public class ModConfig {
         File configFile = new File(configPath);
         File defaultConfigFile = new File(EnchantingTableJsonConfig.DEF_CONFIG_FILE_PATH);
 
-        String json = HBUtil.FileIO.loadJsonConfigs(
-            configFile,
-            defaultConfigFile,
-            EnchantingTableJsonConfig.buildDefaultConfig()
-        );
+        String json = HBUtil.FileIO.loadJsonConfigs(configFile, defaultConfigFile, defaultJsonConfig());
 
         try {
-            this.enchantingBlockPower = new EnchantingTableJsonConfig(json);
+            load(JsonParser.parseString(json).getAsJsonObject());
         } catch (RuntimeException e) {
             String msg = String.format(
-                "Failed to parse user enchanting block-power config JSON: %s. Error:\n %s.\n\nDefault configs will be applied",
+                "Failed to parse enchanting config JSON: %s. Error:\n %s.\n\nDefault configs will be applied",
                 configFile.getAbsolutePath(), e.getCause());
             LoggerProject.logError(CLASS_ID + "002", msg);
-            this.enchantingBlockPower = new EnchantingTableJsonConfig(
-                EnchantingTableJsonConfig.buildDefaultConfig().serialize());
+            load(JsonParser.parseString(defaultJsonConfig().serialize()).getAsJsonObject());
         }
 
-        resolveBlockStats();
-
         LoggerProject.logInfo(CLASS_ID + "001",
-            "Parsed " + enchantingBlockPower.size() + " enchanting block-power entrie(s)");
+            "Loaded " + tierCaps.size() + " enchanting table tier(s)");
+    }
+
+    /** Reads both arrays out of the config root and resolves what needs the registry. */
+    private void load(JsonObject root) {
+        tierCaps.clear();
+        for (EnchantingTableJsonConfig entry : EnchantingTableJsonConfig.parse(root)) {
+            tierCaps.put(entry.getTier(), entry.getTierCaps());
+        }
+
+        resolveBlockStats(BlockEnchantingStatsJsonConfig.parse(root));
     }
 
     /** Turns configured block names into Blocks; the registry is populated by server start. */
-    private void resolveBlockStats() {
+    private void resolveBlockStats(List<BlockEnchantingStatsJsonConfig> configs) {
         blockStats.clear();
         int skipped = 0;
 
-        for (BlockEnchantingStatsJsonConfig config : enchantingBlockPower.getBlockStatConfigs()) {
+        for (BlockEnchantingStatsJsonConfig config : configs) {
             BlockEnchantingStats stats = config.resolve();
             if (stats == null) {
                 skipped++;
@@ -130,5 +124,26 @@ public class ModConfig {
 
     private static void onServerStopped(ServerStoppedEvent event) {
         getInstance().onServerStopped();
+    }
+
+
+    private static IStringSerializable defaultJsonConfig() {
+        return new IStringSerializable() {
+            @Override
+            public String serialize() {
+                JsonObject root = new JsonObject();
+                root.add(EnchantingTableJsonConfig.ROOT_KEY,
+                    EnchantingTableJsonConfig.toJsonArray(EnchantingTableJsonConfig.defaultConfig()));
+                root.add(BlockEnchantingStatsJsonConfig.ROOT_KEY,
+                    BlockEnchantingStatsJsonConfig.toJsonArray(BlockEnchantingStatsJsonConfig.defaultConfig()));
+
+                return new GsonBuilder().setPrettyPrinting().create().toJson(root);
+            }
+
+            @Override
+            public void deserialize(String jsonString) {
+                // No-op for default config
+            }
+        };
     }
 }

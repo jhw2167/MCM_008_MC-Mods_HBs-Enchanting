@@ -2,6 +2,7 @@ package com.holybuckets.enchanting.mixin;
 
 import com.holybuckets.enchanting.block.ModBlocks;
 import com.holybuckets.enchanting.client.EnchantingTierClient;
+import com.holybuckets.enchanting.config.json.EnchantingTableJsonConfig;
 import com.holybuckets.enchanting.config.model.EnchantingTierCaps;
 import com.holybuckets.enchanting.config.ModConfig;
 import com.holybuckets.foundation.networking.SimpleStringMessage;
@@ -32,6 +33,7 @@ public class MixinEnchantmentTableBlock {
         if (level.isClientSide) return;
 
         EnchantingTierCaps caps = ModConfig.getInstance().getTierCaps(ModBlocks.getTableTier(state));
-        SimpleStringMessage.createAndFire(player, EnchantingTierClient.MESSAGE_ID, caps.toJson());
+        SimpleStringMessage.createAndFire(player, EnchantingTierClient.MESSAGE_ID,
+            new EnchantingTableJsonConfig(caps).toJson());
     }
 }

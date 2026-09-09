@@ -1,5 +1,7 @@
 package com.holybuckets.enchanting.config.json;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.holybuckets.enchanting.LoggerProject;
 import com.holybuckets.enchanting.config.model.BlockEnchantingStats;
@@ -10,19 +12,17 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.Block;
 
 import javax.annotation.Nullable;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
- * Json shape for one blockEnchantingStats entry: owns the property names, the parsing, and the
- * registry lookup that turns a block name into a live Block.
- * <p>
- * Property names are built from the operation and the stat, so ADD on ETRN is "addEterna" and
- * CEIL on ARCN is "ceilArcana". Only values that differ from the operation's identity are written
- * back out, which keeps the generated file small.
+ * JSON Config for all stats an arbitrary block can affect an enchanting table
  */
 public class BlockEnchantingStatsJsonConfig {
 
     private static final String CLASS_ID = "017";
 
+    public static final String ROOT_KEY = "blockEnchantingStats";
     public static final String BLOCK_NAME_KEY = "blockName";
 
     private static final String[] OP_PREFIX = { "add", "sub", "mult", "div", "set", "flr", "ceil" };
@@ -134,5 +134,31 @@ public class BlockEnchantingStatsJsonConfig {
     @Nullable
     private static Float read(JsonObject obj, String key) {
         return obj.has(key) && !obj.get(key).isJsonNull() ? obj.get(key).getAsFloat() : null;
+    }
+
+    /** Reads the blockEnchantingStats array out of the config root. */
+    public static List<BlockEnchantingStatsJsonConfig> parse(JsonObject root) {
+        List<BlockEnchantingStatsJsonConfig> entries = new ArrayList<>();
+        if (!root.has(ROOT_KEY) || !root.get(ROOT_KEY).isJsonArray()) return entries;
+
+        for (JsonElement element : root.getAsJsonArray(ROOT_KEY)) {
+            if (!element.isJsonObject()) continue;
+            BlockEnchantingStatsJsonConfig entry = deserialize(element.getAsJsonObject());
+            if (!entry.getBlockName().isEmpty()) entries.add(entry);
+        }
+        return entries;
+    }
+
+    public static JsonArray toJsonArray(List<BlockEnchantingStatsJsonConfig> entries) {
+        JsonArray array = new JsonArray();
+        for (BlockEnchantingStatsJsonConfig entry : entries) {
+            array.add(entry.serialize());
+        }
+        return array;
+    }
+
+    /** The built in block stat table. */
+    public static List<BlockEnchantingStatsJsonConfig> defaultConfig() {
+        return DefaultBlockEnchantingStats.build();
     }
 }

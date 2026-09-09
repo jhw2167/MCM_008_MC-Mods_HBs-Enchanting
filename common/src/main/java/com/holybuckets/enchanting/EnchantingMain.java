@@ -1,7 +1,10 @@
 package com.holybuckets.enchanting;
 
 
+import com.holybuckets.enchanting.core.EnchantmentCalculator;
+import com.holybuckets.enchanting.externalapi.IEnchantInfoProvider;
 import com.holybuckets.foundation.event.EventRegistrar;
+import net.blay09.mods.balm.api.Balm;
 import com.holybuckets.enchanting.config.EnchantingConfig;
 import com.holybuckets.enchanting.block.ModBlocks;
 import com.holybuckets.enchanting.block.be.BlockEntityTypes;
@@ -28,27 +31,16 @@ public class EnchantingMain {
 
     private void init()
     {
-
-        /*
-        Proxy for external APIs which are platform dependent
-        this.portalApi = (PortalApi) Balm.platformProxy()
-            .withFabric("com.holybuckets.challengetemple.externalapi.FabricPortalApi")
-            .withForge("com.holybuckets.challengetemple.externalapi.ForgePortalApi")
-            .build();
-            */
-
         //Events
         EventRegistrar registrar = EventRegistrar.getInstance();
-        //ChallengeBlockBehavior.init(registrar);
+
 
         ModConfig.init(registrar);
+        EnchantmentCalculator.init(registrar);
 
-        //Apotheosis resets the enchanting table block entity type's valid blocks during its own
-        //setup, which drops the copper table; put it back once every level is loading.
         registrar.registerOnLevelLoad(e -> BlockEntityTypes.addValidBlock(
             BlockEntityType.ENCHANTING_TABLE, ModBlocks.copperEnchantingTable));
 
-        //register local events
         registrar.registerOnBeforeServerStarted(this::onServerStarting);
 
     }

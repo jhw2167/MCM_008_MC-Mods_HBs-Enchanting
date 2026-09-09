@@ -2,15 +2,18 @@
   "block.hbs_enchanting.copper_enchanting_table": "Copper Enchanting Table",
   "itemGroup.hbs_enchanting.hbs_enchanting": "HBs Enchanting Overhaul",
 
+  "gui.hbs_enchanting.current": "Current: %s",
+  "gui.hbs_enchanting.max": "Max: %s",
+
   "gui.hbs_enchanting.eterna": "Eterna - Enchanting Power",
-  "gui.hbs_enchanting.eterna.desc": "Greater Eterna makes Stronger Enchantments available",
+  "gui.hbs_enchanting.eterna.desc": "Greater Eterna unlocks access to stronger Enchantments",
 
   "gui.hbs_enchanting.quanta": "Quanta - Enchanting Variety",
   "gui.hbs_enchanting.quanta.desc": "Greater Quanta allows grants more enchanting rerolls",
   "gui.hbs_enchanting.quanta.rerolls": "Rerolls remaining: %s",
 
-  "gui.hbs_enchanting.arcana": "Arcana - Enchanting Greed",
-  "gui.hbs_enchanting.arcana.desc": "Adds levels to enchantments but has a chance to apply a Curse",
+  "gui.hbs_enchanting.arcana": "Arcana - Overleveling",
+  "gui.hbs_enchanting.arcana.desc": "Overlevels enchantments in the table, but may apply curses",
   "gui.hbs_enchanting.arcana.bonus": "Arcana Bonus",
   "gui.hbs_enchanting.arcana.segment": "+%s levels: %s%% chance",
   "gui.hbs_enchanting.arcana.curse": "  curse risk: %s%%",
