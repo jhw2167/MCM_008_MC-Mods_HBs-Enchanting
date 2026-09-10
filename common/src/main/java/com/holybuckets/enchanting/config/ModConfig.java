@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.io.File;
+import java.util.Set;
 
 public class ModConfig {
 
@@ -57,6 +58,20 @@ public class ModConfig {
         return blockStats.containsKey(block);
     }
 
+    //certain types of blocks have many variants, but only 1 should be allowed, like candles
+    public boolean isFirstOfUniqueBlockType(Set<Block> uniqueBlockTypes, Block block) {
+        if(!isMutualExclBlock(block)) return true;
+        if(uniqueBlockTypes.contains(block)) return false;
+
+        Set<Block> mutexBlocks = BlockEnchantingStats.getMutualExclBlocks(block);
+        uniqueBlockTypes.addAll(mutexBlocks);
+        return true;
+    }
+
+    private static boolean isMutualExclBlock(Block block) {
+        return BlockEnchantingStats.isMutualExclBlock(block);
+    }
+
     public EnchantingTierCaps getTierCaps(int tier) {
         return tierCaps.getOrDefault(tier, EnchantingTierCaps.getDefault(tier));
     }
@@ -83,25 +98,40 @@ public class ModConfig {
 
         LoggerProject.logInfo(CLASS_ID + "001",
             "Loaded " + tierCaps.size() + " enchanting table tier(s)");
+
+        BlockEnchantingStats.onServerStarted();
     }
 
-    /** Reads both arrays out of the config root and resolves what needs the registry. */
     private void load(JsonObject root) {
+        List<EnchantingTableJsonConfig> tables = EnchantingTableJsonConfig.parse(root);
+        if (tables.isEmpty()) {
+            LoggerProject.logWarning(CLASS_ID + "004", "Config has no '"
+                + EnchantingTableJsonConfig.ROOT_KEY + "' entries; applying tier defaults");
+            tables = EnchantingTableJsonConfig.defaultConfig();
+        }
+
         tierCaps.clear();
-        for (EnchantingTableJsonConfig entry : EnchantingTableJsonConfig.parse(root)) {
+        for (EnchantingTableJsonConfig entry : tables) {
             tierCaps.put(entry.getTier(), entry.getTierCaps());
         }
 
-        resolveBlockStats(BlockEnchantingStatsJsonConfig.parse(root));
+        List<BlockEnchantingStatsJsonConfig> blocks = BlockEnchantingStatsJsonConfig.parse(root);
+        if (blocks.isEmpty()) {
+            LoggerProject.logWarning(CLASS_ID + "005", "Config has no '"
+                + BlockEnchantingStatsJsonConfig.ROOT_KEY + "' entries; applying block defaults");
+            blocks = BlockEnchantingStatsJsonConfig.defaultConfig();
+        }
+
+        deserializeBlockStats(blocks);
     }
 
     /** Turns configured block names into Blocks; the registry is populated by server start. */
-    private void resolveBlockStats(List<BlockEnchantingStatsJsonConfig> configs) {
+    private void deserializeBlockStats(List<BlockEnchantingStatsJsonConfig> configs) {
         blockStats.clear();
         int skipped = 0;
 
         for (BlockEnchantingStatsJsonConfig config : configs) {
-            BlockEnchantingStats stats = config.resolve();
+            BlockEnchantingStats stats = BlockEnchantingStatsJsonConfig.deserialize(config);
             if (stats == null) {
                 skipped++;
                 continue;
@@ -146,4 +176,5 @@ public class ModConfig {
             }
         };
     }
+
 }

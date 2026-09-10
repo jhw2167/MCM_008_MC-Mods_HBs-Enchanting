@@ -9,7 +9,8 @@
         "ApothEnchantmentMenuAccessor",
         "MixinApothEnchantmentMenuSelect",
         "MixinRealEnchantmentHelper",
-        "MixinApothEnchantmentMenuLapis"
+        "MixinApothEnchantmentMenuLapis",
+        "MixinEnchantingStatRegistry"
     ],
     "client": [
         "client.MixinApothEnchantScreen"

@@ -11,10 +11,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-/**
- * The enchantment menu validates itself against Blocks.ENCHANTING_TABLE by identity, which closes
- * any modded table on its first tick. Accept the copper table wherever the vanilla one is expected.
- */
+
 @Mixin(AbstractContainerMenu.class)
 public class MixinAbstractContainerMenu {
 

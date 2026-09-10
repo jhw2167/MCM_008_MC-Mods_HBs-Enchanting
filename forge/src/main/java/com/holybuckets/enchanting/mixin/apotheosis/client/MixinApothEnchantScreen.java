@@ -1,6 +1,7 @@
 package com.holybuckets.enchanting.mixin.apotheosis.client;
 
 import com.holybuckets.enchanting.client.EnchantingTierClient;
+import com.holybuckets.enchanting.config.model.BlockEnchantingStats.APTH;
 import com.holybuckets.enchanting.config.model.EnchantingTierCaps;
 import com.holybuckets.enchanting.core.EnchantmentCalculator;
 import com.holybuckets.enchanting.mixin.apotheosis.ApothEnchantmentMenuAccessor;
@@ -14,7 +15,10 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
+import net.minecraft.sounds.SoundEvents;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
@@ -52,6 +56,21 @@ public abstract class MixinApothEnchantScreen {
     private static final int INFO_BUTTON_Y = -15;
     private static final int INFO_BUTTON_WIDTH = 27;
     private static final int INFO_BUTTON_HEIGHT = 15;
+
+    private static final int NUMERAL_Y = 15;
+    private static final int ROW_HEIGHT = 19;
+
+    private static final int LEDGER_GAP = 4;
+    private static final int LEDGER_PAD = 8;
+    private static final int TOOLTIP_OFFSET = 12;
+    private static final int LEDGER_TOP = 24;
+    private static final int LEDGER_MAX_ROWS = 2;
+
+    private static final String[] STAT_KEYS = { "eterna", "quanta", "arcana", "rectification", "clues" };
+    private static final ChatFormatting[] STAT_COLORS = {
+        ChatFormatting.GREEN, ChatFormatting.RED, ChatFormatting.DARK_PURPLE,
+        ChatFormatting.YELLOW, ChatFormatting.DARK_AQUA
+    };
 
     private static final int OFF_SCREEN = -9999;
 
@@ -108,17 +127,111 @@ public abstract class MixinApothEnchantScreen {
             }
         }
 
+        if (region == REGION_INFO_BUTTON) {
+            gfx.renderComponentTooltip(screen.getMinecraft().font, ledgerHint(), mouseX, mouseY);
+        }
+
+        drawLedger(screen, gfx);
         ci.cancel();
     }
 
-    /** Swallows the click that would open the Apotheosis info screen. */
-    @Inject(method = "mouseClicked", at = @At("HEAD"), cancellable = true)
-    private void hbs_enchanting$blockInfoButton(double mouseX, double mouseY, int button,
-                                                CallbackInfoReturnable<Boolean> cir) {
-        ApothEnchantScreen screen = (ApothEnchantScreen) (Object) this;
-        if (isOver(screen, INFO_BUTTON_X, INFO_BUTTON_Y, INFO_BUTTON_WIDTH, INFO_BUTTON_HEIGHT, mouseX, mouseY)) {
-            cir.setReturnValue(false);
+    /** The ledger panel also draws on the normal path, where render is not cancelled. */
+    @Inject(method = "render", at = @At("TAIL"))
+    private void hbs_enchanting$renderLedger(GuiGraphics gfx, int mouseX, int mouseY, float partialTicks,
+                                             CallbackInfo ci) {
+        drawLedger((ApothEnchantScreen) (Object) this, gfx);
+    }
+
+    private static List<Component> ledgerHint() {
+        List<Component> list = new ArrayList<>();
+        list.add(Component.translatable("gui.hbs_enchanting.ledger").withStyle(ChatFormatting.GOLD));
+        list.add(Component.translatable("gui.hbs_enchanting.ledger.toggle").withStyle(ChatFormatting.GRAY));
+        return list;
+    }
+
+    /**
+     * Lists which blocks moved each stat, on the right of the menu. Values are the net effect the
+     * block had, so a divisor like the bee shelf shows the amount it removed rather than its factor.
+     */
+    private void drawLedger(ApothEnchantScreen screen, GuiGraphics gfx) {
+        if (!this.hbs_enchanting$ledgerOpen) return;
+
+        List<Component> lines = new ArrayList<>();
+
+        for (APTH stat : APTH.VALUES) {
+            List<EnchantingTierClient.LedgerEntry> entries = EnchantingTierClient.getLedger(stat.ordinal());
+            if (entries.isEmpty()) continue;
+
+            lines.add(Component.translatable("gui.hbs_enchanting." + STAT_KEYS[stat.ordinal()])
+                .withStyle(STAT_COLORS[stat.ordinal()], ChatFormatting.UNDERLINE));
+
+            //Additions first, then subtractions, largest effect first
+            appendGroup(lines, entries, true);
+            appendGroup(lines, entries, false);
         }
+
+        if (lines.isEmpty()) return;
+
+        Font font = screen.getMinecraft().font;
+        int width = 0;
+        for (Component line : lines) width = Math.max(width, font.width(line));
+
+        //renderComponentTooltip offsets by 12 internally, so back that out to sit flush, then keep
+        //the panel on screen: to the left of the menu when there is no room on the right
+        int x = screen.getGuiLeft() + screen.getXSize() + LEDGER_GAP - TOOLTIP_OFFSET;
+        if (x + TOOLTIP_OFFSET + width + LEDGER_PAD > screen.width) {
+            x = screen.getGuiLeft() - width - LEDGER_PAD - TOOLTIP_OFFSET - LEDGER_GAP;
+        }
+
+        gfx.renderComponentTooltip(font, lines, Math.max(0, x), screen.getGuiTop() + LEDGER_TOP);
+    }
+
+    /** Lists the two largest entries then rolls whatever is left into a single Other line. */
+    private static void appendGroup(List<Component> lines, List<EnchantingTierClient.LedgerEntry> entries,
+                                    boolean positive) {
+        List<EnchantingTierClient.LedgerEntry> group = new ArrayList<>();
+        for (EnchantingTierClient.LedgerEntry entry : entries) {
+            if (positive == entry.value() > 0) group.add(entry);
+        }
+        group.sort((a, b) -> Float.compare(Math.abs(b.value()), Math.abs(a.value())));
+
+        for (int i = 0; i < Math.min(LEDGER_MAX_ROWS, group.size()); i++) {
+            lines.add(ledgerLine(group.get(i)));
+        }
+
+        float rest = 0f;
+        for (int i = LEDGER_MAX_ROWS; i < group.size(); i++) rest += group.get(i).value();
+        if (rest != 0f) {
+            String amount = (rest > 0 ? "+" : "") + format(rest);
+            lines.add(Component.literal(" " + amount + " ")
+                .append(Component.translatable("gui.hbs_enchanting.ledger.other"))
+                .withStyle(rest > 0 ? ChatFormatting.WHITE : ChatFormatting.GOLD));
+        }
+    }
+
+    private static Component ledgerLine(EnchantingTierClient.LedgerEntry entry) {
+        boolean positive = entry.value() > 0;
+        String amount = (positive ? "+" : "") + format(entry.value());
+        return Component.literal(" " + amount + " ").append(entry.block().getName())
+            .withStyle(positive ? ChatFormatting.WHITE : ChatFormatting.GOLD);
+    }
+
+    @Unique
+    private boolean hbs_enchanting$ledgerOpen = false;
+
+    /** The info button toggles the ledger rather than opening the Apotheosis info screen. */
+    @Inject(method = "mouseClicked", at = @At("HEAD"), cancellable = true)
+    private void hbs_enchanting$toggleLedger(double mouseX, double mouseY, int button,
+                                             CallbackInfoReturnable<Boolean> cir) {
+        ApothEnchantScreen screen = (ApothEnchantScreen) (Object) this;
+        if (!isOver(screen, INFO_BUTTON_X, INFO_BUTTON_Y, INFO_BUTTON_WIDTH, INFO_BUTTON_HEIGHT, mouseX, mouseY)) {
+            return;
+        }
+
+        this.hbs_enchanting$ledgerOpen = !this.hbs_enchanting$ledgerOpen;
+        screen.getMinecraft().getSoundManager().play(
+            SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0f));
+        cir.setReturnValue(true);
     }
 
     private static int regionAt(ApothEnchantScreen screen, int mouseX, int mouseY) {
@@ -151,9 +264,17 @@ public abstract class MixinApothEnchantScreen {
         at = @At(value = "INVOKE",
             target = "Lnet/minecraft/client/gui/GuiGraphics;blit(Lnet/minecraft/resources/ResourceLocation;IIIIII)V"),
         index = 2)
-    private int hbs_enchanting$hideInfoButton(int y) {
+    private int hbs_enchanting$hideNumerals(int y) {
         ApothEnchantScreen screen = (ApothEnchantScreen) (Object) this;
-        return y == screen.getGuiTop() + INFO_BUTTON_Y ? OFF_SCREEN : y;
+        int guiTop = screen.getGuiTop();
+
+        //The 1/2/3 numeral icons sit one pixel below their row background, which is the only
+        //thing distinguishing them; the rows themselves stay visible. The info button is left
+        //alone because it now toggles the ledger.
+        for (int row = 0; row < 3; row++) {
+            if (y == guiTop + NUMERAL_Y + ROW_HEIGHT * row) return OFF_SCREEN;
+        }
+        return y;
     }
 
     @Inject(method = "renderBg", at = @At("TAIL"))
@@ -187,7 +308,13 @@ public abstract class MixinApothEnchantScreen {
     private static List<Component> quantaPopup(float quanta) {
         List<Component> list = new ArrayList<>();
         list.add(Component.literal(I18n.get("gui.hbs_enchanting.quanta.rerolls",
-            EnchantmentCalculator.Quanta.rerollsAtQuanta(quanta))).withStyle(ChatFormatting.BLUE));
+            EnchantingTierClient.getRerollsRemaining())).withStyle(ChatFormatting.BLUE));
+
+        String page = EnchantingTierClient.getPage();
+        if (!page.isEmpty()) {
+            list.add(Component.literal(I18n.get("gui.hbs_enchanting.quanta.page", page))
+                .withStyle(ChatFormatting.GOLD));
+        }
         return list;
     }
 

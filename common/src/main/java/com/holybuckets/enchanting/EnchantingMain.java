@@ -17,7 +17,7 @@ import net.blay09.mods.balm.api.event.server.ServerStartingEvent;
  * This class will init all major Manager instances and events for the mod
  */
 public class EnchantingMain {
-    private static boolean DEV_MODE = false;;
+    public static boolean DEV_MODE = false;;
     private static EnchantingConfig CONFIG;
     public static EnchantingMain INSTANCE;
 

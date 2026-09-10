@@ -6,14 +6,22 @@
   "gui.hbs_enchanting.max": "Max: %s",
 
   "gui.hbs_enchanting.eterna": "Eterna - Enchanting Power",
-  "gui.hbs_enchanting.eterna.desc": "Greater Eterna unlocks access to stronger Enchantments",
+  "gui.hbs_enchanting.eterna.desc": "Eterna grants access to stronger Enchantments",
 
   "gui.hbs_enchanting.quanta": "Quanta - Enchanting Variety",
-  "gui.hbs_enchanting.quanta.desc": "Greater Quanta allows rerolling your enchantments",
+  "gui.hbs_enchanting.quanta.desc": "Quanta allows rerolling your enchantments",
+  "gui.hbs_enchanting.quanta.page": "Page %s",
   "gui.hbs_enchanting.quanta.rerolls": "Rerolls remaining: %s",
 
   "gui.hbs_enchanting.arcana": "Arcana - Overleveling",
   "gui.hbs_enchanting.arcana.desc": "Overlevels enchantments in the table, but may apply curses",
+  "gui.hbs_enchanting.ledger": "Block Contributions",
+  "gui.hbs_enchanting.ledger.other": "Other",
+  "gui.hbs_enchanting.ledger.toggle": "Click to show or hide",
+
+  "gui.hbs_enchanting.rectification": "Rectification",
+  "gui.hbs_enchanting.clues": "Clues",
+
   "gui.hbs_enchanting.arcana.bonus": "Arcana Bonus",
   "gui.hbs_enchanting.arcana.segment": "+%s levels: %s%% chance",
   "gui.hbs_enchanting.arcana.curse": "  curse risk: %s%%",

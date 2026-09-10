@@ -1,12 +1,5 @@
 package com.holybuckets.enchanting.config.model;
 
-/**
- * Per tier settings for an enchanting table: how far it searches for stat providing blocks, and
- * the ceiling it puts on each of the three enchanting stats.
- * <p>
- * Every constructor field is an Integer so a partial config object defaults what it leaves out.
- * Attribute names and serialization live in EnchantingTableJsonConfig.
- */
 public class EnchantingTierCaps {
 
     public static final int TIER_COPPER = 0;
@@ -50,9 +43,9 @@ public class EnchantingTierCaps {
 
     private static int defaultRadius(int tier) {
         return switch (tier) {
-            case TIER_COPPER -> 10;
-            case TIER_NETHERITE -> 14;
-            default -> 12;
+            case TIER_COPPER -> 4;
+            case TIER_NETHERITE -> 10;
+            default -> 8;
         };
     }
 

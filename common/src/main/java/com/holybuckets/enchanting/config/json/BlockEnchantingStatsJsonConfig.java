@@ -7,6 +7,7 @@ import com.holybuckets.enchanting.LoggerProject;
 import com.holybuckets.enchanting.config.model.BlockEnchantingStats;
 import com.holybuckets.enchanting.config.model.BlockEnchantingStats.APTH;
 import com.holybuckets.enchanting.config.model.BlockEnchantingStats.OPS;
+import com.holybuckets.foundation.HBUtil;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.Block;
@@ -26,8 +27,8 @@ public class BlockEnchantingStatsJsonConfig {
     public static final String BLOCK_NAME_KEY = "blockName";
 
     private static final String[] OP_PREFIX = { "add", "sub", "mult", "div", "set", "flr", "ceil" };
-    private static final String[] STAT_SUFFIX = { "Eterna", "Quanta", "Arcana" };
-    private static final String[] MAX_KEY = { "maxEterna", "maxQuanta", "maxArcana" };
+    private static final String[] STAT_SUFFIX = { "Eterna", "Quanta", "Arcana", "Rectification", "Clues" };
+    private static final String[] MAX_KEY = { "maxEterna", "maxQuanta", "maxArcana", "maxRectification", "maxClues" };
 
     private final String blockName;
     private final float[][] ops;
@@ -36,8 +37,8 @@ public class BlockEnchantingStatsJsonConfig {
     public BlockEnchantingStatsJsonConfig(String blockName) {
         this.blockName = blockName == null ? "" : blockName;
         this.ops = BlockEnchantingStats.identityOps();
-        this.max = new float[] {
-            Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY };
+        this.max = new float[APTH.VALUES.length];
+        java.util.Arrays.fill(this.max, Float.POSITIVE_INFINITY);
     }
 
     public String getBlockName() {
@@ -68,13 +69,14 @@ public class BlockEnchantingStatsJsonConfig {
      * @return the usable stats, or null when the block is not registered
      */
     @Nullable
-    public BlockEnchantingStats resolve() {
+    public static BlockEnchantingStats deserialize(BlockEnchantingStatsJsonConfig config) {
+        String blockName = config.getBlockName();
         if (blockName.isEmpty()) {
             LoggerProject.logError(CLASS_ID + "001", "blockEnchantingStats entry is missing a blockName; skipping");
             return null;
         }
 
-        ResourceLocation id = ResourceLocation.tryParse(blockName);
+        ResourceLocation id = HBUtil.LOC(blockName);
         Block block = id == null ? null : BuiltInRegistries.BLOCK.getOptional(id).orElse(null);
         if (block == null) {
             LoggerProject.logError(CLASS_ID + "002",
@@ -82,8 +84,7 @@ public class BlockEnchantingStatsJsonConfig {
             return null;
         }
 
-        return new BlockEnchantingStats(block, ops,
-            max[APTH.ETRN.ordinal()], max[APTH.QNTA.ordinal()], max[APTH.ARCN.ordinal()]);
+        return new BlockEnchantingStats(block, config.ops, config.max);
     }
 
     public JsonObject serialize() {
@@ -92,6 +93,7 @@ public class BlockEnchantingStatsJsonConfig {
 
         for (OPS op : OPS.VALUES) {
             for (APTH stat : APTH.VALUES) {
+                if (!supports(stat, op)) continue;
                 float value = ops[stat.ordinal()][op.ordinal()];
                 if (isIdentity(op, value)) continue;
                 obj.addProperty(key(op, stat), value);
@@ -113,6 +115,7 @@ public class BlockEnchantingStatsJsonConfig {
 
         for (OPS op : OPS.VALUES) {
             for (APTH stat : APTH.VALUES) {
+                if (!supports(stat, op)) continue;
                 Float value = read(obj, key(op, stat));
                 if (value != null) config.set(stat, op, value);
             }
@@ -124,6 +127,11 @@ public class BlockEnchantingStatsJsonConfig {
         }
 
         return config;
+    }
+
+    /** Rectification and clues expose only the add and subtract keys. */
+    private static boolean supports(APTH stat, OPS op) {
+        return !stat.isAdditiveOnly() || op == OPS.ADD || op == OPS.SUB;
     }
 
     private static boolean isIdentity(OPS op, float value) {
