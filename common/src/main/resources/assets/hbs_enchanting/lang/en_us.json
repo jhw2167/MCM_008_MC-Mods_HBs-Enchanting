@@ -19,6 +19,17 @@
   "gui.hbs_enchanting.ledger.other": "Other",
   "gui.hbs_enchanting.ledger.toggle": "Click to show or hide",
 
+  "gui.hbs_enchanting.stats": "Enchanting Stats",
+  "gui.hbs_enchanting.stat.eterna": "Eterna",
+  "gui.hbs_enchanting.stat.quanta": "Quanta",
+  "gui.hbs_enchanting.stat.arcana": "Arcana",
+  "gui.hbs_enchanting.stat.rectification": "Rectification",
+  "gui.hbs_enchanting.stat.clues": "Clues",
+  "gui.hbs_enchanting.stat.set": "Sets const %s",
+  "gui.hbs_enchanting.stat.min": "Sets min %s",
+  "gui.hbs_enchanting.stat.max": "Sets max %s",
+  "gui.hbs_enchanting.stat.cap": "(max %s)",
+
   "gui.hbs_enchanting.rectification": "Rectification",
   "gui.hbs_enchanting.clues": "Clues",
 

@@ -3,6 +3,7 @@ package com.holybuckets.enchanting;
 
 import com.holybuckets.enchanting.core.EnchantmentCalculator;
 import com.holybuckets.enchanting.externalapi.IEnchantInfoProvider;
+import com.holybuckets.enchanting.command.CommandList;
 import com.holybuckets.foundation.event.EventRegistrar;
 import net.blay09.mods.balm.api.Balm;
 import com.holybuckets.enchanting.config.EnchantingConfig;
@@ -36,6 +37,7 @@ public class EnchantingMain {
 
 
         ModConfig.init(registrar);
+        CommandList.register();
         EnchantmentCalculator.init(registrar);
 
         registrar.registerOnLevelLoad(e -> BlockEntityTypes.addValidBlock(

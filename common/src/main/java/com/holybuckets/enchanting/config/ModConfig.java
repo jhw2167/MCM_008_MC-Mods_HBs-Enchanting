@@ -1,5 +1,7 @@
 package com.holybuckets.enchanting.config;
 
+import com.google.common.collect.HashMultimap;
+import com.google.common.collect.Multimap;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -16,6 +18,9 @@ import net.blay09.mods.balm.api.event.EventPriority;
 import net.blay09.mods.balm.api.event.server.ServerStartingEvent;
 import net.blay09.mods.balm.api.event.server.ServerStoppedEvent;
 
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.level.block.Block;
 
 import javax.annotation.Nullable;
@@ -32,6 +37,9 @@ public class ModConfig {
 
     private final Map<Integer, EnchantingTierCaps> tierCaps = new HashMap<>();
     private final Map<Block, BlockEnchantingStats> blockStats = new HashMap<>();
+
+    /** Enchantments that may never share an item, recorded in both directions. */
+    private final Multimap<Enchantment, Enchantment> exclusiveEnchants = HashMultimap.create();
 
     public static ModConfig getInstance() {
         if (INSTANCE == null) INSTANCE = new ModConfig();
@@ -77,6 +85,49 @@ public class ModConfig {
     }
 
 
+
+    /** True when the two enchantments are configured as mutually exclusive. */
+    public boolean isExclusive(Enchantment a, Enchantment b) {
+        return exclusiveEnchants.containsEntry(a, b);
+    }
+
+    public Multimap<Enchantment, Enchantment> getExclusiveEnchants() {
+        return exclusiveEnchants;
+    }
+
+    private void loadExclusiveEnchants(List<String> pairs) {
+        exclusiveEnchants.clear();
+        if (pairs == null) return;
+
+        for (String pair : pairs) {
+            String[] names = pair.split(",");
+            if (names.length != 2) {
+                LoggerProject.logError(CLASS_ID + "005", "Exclusive enchantment entry needs two ids: " + pair);
+                continue;
+            }
+
+            Enchantment first = findEnchantment(names[0].trim());
+            Enchantment second = findEnchantment(names[1].trim());
+            if (first == null || second == null || first == second) continue;
+
+            exclusiveEnchants.put(first, second);
+            exclusiveEnchants.put(second, first);
+        }
+
+        LoggerProject.logInfo(CLASS_ID + "006",
+            "Loaded " + exclusiveEnchants.size() / 2 + " exclusive enchantment pair(s)");
+    }
+
+    @Nullable
+    private Enchantment findEnchantment(String name) {
+        ResourceLocation id = ResourceLocation.tryParse(name);
+        Enchantment enchantment = id == null ? null : BuiltInRegistries.ENCHANTMENT.get(id);
+        if (enchantment == null) {
+            LoggerProject.logError(CLASS_ID + "007", "Unknown enchantment in exclusive config: " + name);
+        }
+        return enchantment;
+    }
+
     private void onBeforeServerStarted() {
         EnchantingConfig activeConfig = Balm.getConfig().getActiveConfig(EnchantingConfig.class);
         String configPath = activeConfig.enchantingBlockPowerConfig;
@@ -98,6 +149,8 @@ public class ModConfig {
 
         LoggerProject.logInfo(CLASS_ID + "001",
             "Loaded " + tierCaps.size() + " enchanting table tier(s)");
+
+        loadExclusiveEnchants(activeConfig.exclusivePairs);
 
         BlockEnchantingStats.onServerStarted();
     }

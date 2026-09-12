@@ -3,9 +3,10 @@ package com.holybuckets.enchanting.core;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import com.holybuckets.enchanting.CommonClass;
 import com.holybuckets.enchanting.EnchantingMain;
 import com.holybuckets.enchanting.LoggerProject;
+import com.holybuckets.enchanting.config.EnchantingConfig;
+import com.holybuckets.enchanting.config.ModConfig;
 import com.holybuckets.enchanting.externalapi.EnchantmentPowerInfo;
 import com.holybuckets.enchanting.externalapi.IEnchantInfoProvider;
 import com.holybuckets.foundation.GeneralConfig;
@@ -83,7 +84,7 @@ public class EnchantmentCalculator {
                 LoggerProject.logDebug("020002", "getValidEnchantments returned nothing at cost " + cost);
                 return Collections.emptyList();
             }
-            Quanta.buildOptions(random, key, stack, quanta, eterna, selected);
+            Quanta.buildOptions(random, key, stack, quanta, eterna, arcana, selected);
             session = Quanta.SESSIONS.get(key);
         }
 
@@ -100,14 +101,11 @@ public class EnchantmentCalculator {
             //The item is enchanted; the session is spent and a later insert starts fresh
             RandomSource random = RandomSource.create(seedOf(key, eterna) + slot);
             Quanta.clear(key);
-            return Arcana.apply(random, stack, arcana, option);
+            return Arcana.apply(random, stack, arcana, rectification, option);
         }
         return option;
     }
 
-    /** Stable across repeat calls for the same roll; identity hashes are deliberately avoided. */
-    //Stable for the life of a table session. ItemStack has no value based hashCode, so hashing
-    //the stack gave a different seed on every insert and a completely different pool each time.
     private static long seedOf(Quanta.Key key, float eterna) {
         long worldSeed = GENERAL_CONFIG.getWorldSeed();
         return worldSeed * 31L + key.hashCode() * 31L + (long)(eterna * 1000);
@@ -138,7 +136,7 @@ public class EnchantmentCalculator {
             float mean = eterna * 2f;
             float stdDev = mean / 6f;
             //Seeded from the table state only, so the cost is stable while the item sits there
-            long seed = Float.floatToIntBits(eterna) * 31L + slot;
+            long seed = Float.floatToIntBits(eterna) * stack.getItem().hashCode() + slot;
             float gaussian = mean + (float) new Random(seed).nextGaussian() * stdDev;
             return Math.max(1, Math.round(gaussian));
         }
@@ -201,29 +199,44 @@ public class EnchantmentCalculator {
                 this.pool = pool;
             }
         }
-        public static final float QUANTA_REROLL_COST = 5f;
-        public static final int MAX_PERMUTATION_INPUT = 12;
-        private static final float enchantsPerEterna = 0.25f; // 10 enchants per 50 eterna
-        private static final float enchantsPerQuanta = 0.125f; // 10 enchants per 100 eternaa
-        private static final float levelCombinationCount = 0.5f; //an additional enchanting level counts as half a new enchantment
+        //Largest combination the enumeration will build, regardless of the weight budget
+        public static final int MAX_PERMUTATION_INPUT = 6;
+
+        //Set from EnchantingConfig at server start
+        private static float quantaRerollRate = 15f;
+        private static float enchantsPerEterna = 0.25f;
+        private static float enchantsPerQuanta = 0.125f;
+        private static float enchantsPerArcana = 0f;
+        private static float levelCombinationCount = 1f;
         private static final Map<Enchantment.Rarity, Float> rarityCombinationCounts = new HashMap<>();
 
         static void onServerStart(ServerStartingEvent event) {
             SESSIONS.clear();
-            rarityCombinationCounts.put(Enchantment.Rarity.COMMON, 0.5f);
-            rarityCombinationCounts.put(Enchantment.Rarity.UNCOMMON, 1f);
-            rarityCombinationCounts.put(Enchantment.Rarity.RARE, 2f);
-            rarityCombinationCounts.put(Enchantment.Rarity.VERY_RARE, 4f);
+
+            EnchantingConfig.EnchantmentVarietyConfig config = Balm.getConfig()
+                .getActiveConfig(EnchantingConfig.class).enchantmentVarietyConfig;
+
+            quantaRerollRate = config.quantaRerollRate;
+            enchantsPerEterna = config.enchantmentsPerItemEternaScaler;
+            enchantsPerQuanta = config.enchantmentsPerItemQuantaScaler;
+            enchantsPerArcana = config.enchantmentsPerItemArcanaScaler;
+            levelCombinationCount = config.enchantmentsPerLevelWeight;
+
+            rarityCombinationCounts.put(Enchantment.Rarity.COMMON, config.enchantmentRarityComboRates.get(0));
+            rarityCombinationCounts.put(Enchantment.Rarity.UNCOMMON, config.enchantmentRarityComboRates.get(1));
+            rarityCombinationCounts.put(Enchantment.Rarity.RARE, config.enchantmentRarityComboRates.get(2));
+            rarityCombinationCounts.put(Enchantment.Rarity.VERY_RARE, config.enchantmentRarityComboRates.get(3));
         }
 
         private Quanta() {}
 
         //Total number of distinct enchantments permitted per item
         public static final float BASE_QUANTA=3f;
-        public static float getMaxCombinationsCount(float quanta, float eterna) {
+        public static float getMaxCombinationsCount(float quanta, float eterna, float arcana) {
             float maxByEterna = enchantsPerEterna * eterna;
             float maxByQuanta = enchantsPerQuanta * quanta;
-            return Math.max(0f, maxByEterna+maxByQuanta)+BASE_QUANTA;
+            float maxByArcana = enchantsPerArcana * arcana;
+            return Math.max(0f, maxByEterna+maxByQuanta+maxByArcana)+BASE_QUANTA;
         }
 
         //Every non empty subset of the rolled enchantments, largest first.
@@ -245,7 +258,7 @@ public class EnchantmentCalculator {
                 if (seen.add(ei.enchantment)) set.add(ei);
             }
 
-            int maxPerSet = Math.min((int) maxEnchantsPerCombination, set.size());
+            int maxPerSet = Math.min(Math.min((int) maxEnchantsPerCombination, set.size()), MAX_PERMUTATION_INPUT);
             Set<Set<EnchantmentInstance>> combinations = new HashSet<>();
             for (int i = 1; i <= maxPerSet; i++) {
                 combinations.addAll(combinations(set, i));
@@ -256,6 +269,8 @@ public class EnchantmentCalculator {
             float half = maxEnchantsPerCombination / 2f;
 
             for (Set<EnchantmentInstance> combination : combinations) {
+                if (hasExclusivePair(combination)) continue;
+
                 float weightedCount = weigh(combination);
                 if (weightedCount > maxEnchantsPerCombination) continue;
                 if (weightedCount <= half) halfPermutations.add(combination);
@@ -272,7 +287,8 @@ public class EnchantmentCalculator {
 
                 Set<EnchantmentInstance> merged = new HashSet<>(a);
                 merged.addAll(b);
-                if (weigh(merged) <= maxEnchantsPerCombination && merged.size() == a.size() + b.size()) {
+                if (weigh(merged) <= maxEnchantsPerCombination && merged.size() == a.size() + b.size()
+                    && !hasExclusivePair(merged)) {
                     permutations.add(merged);
                 }
                 low++;
@@ -283,7 +299,20 @@ public class EnchantmentCalculator {
             return permutations;
         }
 
-        static float weigh(Set<EnchantmentInstance> combination) {
+        //Rejects a grouping holding two enchantments the config marks as exclusive
+        static boolean hasExclusivePair(Set<EnchantmentInstance> combination) {
+            ModConfig config = ModConfig.getInstance();
+            List<EnchantmentInstance> list = new ArrayList<>(combination);
+
+            for (int i = 0; i < list.size(); i++) {
+                for (int j = i + 1; j < list.size(); j++) {
+                    if (config.isExclusive(list.get(i).enchantment, list.get(j).enchantment)) return true;
+                }
+            }
+            return false;
+        }
+
+        public static float weigh(Set<EnchantmentInstance> combination) {
             float weightedCount = 0;
             for (EnchantmentInstance ei : combination) {
                 weightedCount += rarityCombinationCounts.getOrDefault(ei.enchantment.getRarity(), 1f);
@@ -294,9 +323,10 @@ public class EnchantmentCalculator {
 
 
         public static void buildOptions(RandomSource random, Key key, ItemStack stack,
-                                        float quanta, float eterna, List<EnchantmentInstance> enchantments)
+                                        float quanta, float eterna, float arcana,
+                                        List<EnchantmentInstance> enchantments)
         {
-            float count = Math.min(getMaxCombinationsCount(quanta, eterna), enchantments.size());
+            float count = Math.min(getMaxCombinationsCount(quanta, eterna, arcana), enchantments.size());
             List<Set<EnchantmentInstance>> combinations = getCombinations(random, enchantments, count);
             if (combinations.isEmpty()) return;
 
@@ -308,7 +338,7 @@ public class EnchantmentCalculator {
         }
 
         public static Integer rerollsAtQuanta(float quanta) {
-            return ((int) (quanta / QUANTA_REROLL_COST))+1;
+            return ((int) (quanta / quantaRerollRate))+1;
         }
 
         //Roll r shows pool entries [r*ROWS + slot]; past the end the row has no option and is hidden
@@ -333,20 +363,20 @@ public class EnchantmentCalculator {
             return (session.pool.size() + ROWS - 1) / ROWS;
         }
 
-        /** Rerolls left after the current page. */
         public static int getRemainingRerolls(Key key) {
             return Math.max(0, getTotalPages(key) - getPage(key));
         }
 
-        //Advances to the next window of ROWS options
         public static void reRoll(Key key) {
             Session session = SESSIONS.get(key);
             if (session == null) return;
-            if (session.page.intValue() + 1 < getTotalPages(key)) session.page.getAndIncrement();
+
+            //Wraps back to the first page so rerolling cycles the pool indefinitely
+            int total = getTotalPages(key);
+            if (total <= 0) return;
+            session.page.set((session.page.intValue() + 1) % total);
         }
 
-        //Taking the item out and putting it back is the reroll. The first insert has no pool yet
-        //and select builds one at window zero; every later insert advances the window.
         public static void onInsert(UUID playerId, ItemStack stack) {
             Key key = new Key(playerId, stack.getItem());
             if (SESSIONS.containsKey(key)) reRoll(key);
@@ -446,32 +476,38 @@ public class EnchantmentCalculator {
          * Rolls arcana for each enchantment, returning the overleveled results.
          * Curses are accumulated across all enchantments and returned on the result.
          */
-        public static List<EnchantmentInstance> apply(RandomSource random, ItemStack stack, float arcana, List<EnchantmentInstance> enchantments)
+        public static List<EnchantmentInstance> apply(RandomSource random, ItemStack stack, float arcana,
+                                                     float rectification, List<EnchantmentInstance> enchantments)
         {
             List<EnchantmentInstance> result = new ArrayList<>(enchantments.size());
-            int curses = 0;
+            List<Enchantment> available = getApplicableCurses(stack);
+            int rectifications = (int) rectification;
 
-            int i;
-            for(i=0; i<enchantments.size(); i++)
+            for (EnchantmentInstance instance : enchantments)
             {
-                EnchantmentInstance instance = enchantments.get(i);
                 int maxLevel = instance.enchantment.getMaxLevel();
-                if(instance.level >= maxLevel) {
+                if (instance.level >= maxLevel) {
                     result.add(instance);
                     continue;
                 }
 
                 Roll roll = roll(random, arcana);
                 int bonusLevels = Math.min(roll.bonusLevels(), maxLevel - instance.level);
-                result.add(new EnchantmentInstance(instance.enchantment, instance.level+bonusLevels));
-                if(roll.curses() > 1) {
-                    List<EnchantmentInstance> cursesList = pickCurses(random, stack, bonusLevels);
-                    result.addAll(cursesList);
-                    break;
+                result.add(new EnchantmentInstance(instance.enchantment, instance.level + bonusLevels));
+
+                //Each point of rectification cancels one curse, and the remaining curses still roll
+                for (int curse = 0; curse < roll.curses(); curse++) {
+                    if (rectifications > 0) {
+                        rectifications--;
+                        continue;
+                    }
+                    if (available.isEmpty()) break;
+
+                    Enchantment picked = available.remove(random.nextInt(available.size()));
+                    int level = Math.max(1, Math.min(bonusLevels, picked.getMaxLevel()));
+                    result.add(new EnchantmentInstance(picked, level));
                 }
             }
-            if(i<enchantments.size()-1)
-                result.addAll(enchantments.subList(i+1, enchantments.size()));
             return result;
         }
 

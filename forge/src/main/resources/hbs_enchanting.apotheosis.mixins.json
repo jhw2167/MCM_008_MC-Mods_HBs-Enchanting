@@ -13,7 +13,8 @@
         "MixinEnchantingStatRegistry"
     ],
     "client": [
-        "client.MixinApothEnchantScreen"
+        "client.MixinApothEnchantScreen",
+        "client.MixinEnchModuleClient"
     ],
     "server": [
     ],
