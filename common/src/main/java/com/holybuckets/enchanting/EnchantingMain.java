@@ -7,6 +7,8 @@ import com.holybuckets.enchanting.command.CommandList;
 import com.holybuckets.foundation.event.EventRegistrar;
 import net.blay09.mods.balm.api.Balm;
 import com.holybuckets.enchanting.config.EnchantingConfig;
+import com.holybuckets.enchanting.networking.BlockStatsSyncMessage;
+import net.blay09.mods.balm.api.event.PlayerLoginEvent;
 import com.holybuckets.enchanting.block.ModBlocks;
 import com.holybuckets.enchanting.block.be.BlockEntityTypes;
 import com.holybuckets.enchanting.config.ModConfig;
@@ -40,11 +42,18 @@ public class EnchantingMain {
         CommandList.register();
         EnchantmentCalculator.init(registrar);
 
-        registrar.registerOnLevelLoad(e -> BlockEntityTypes.addValidBlock(
-            BlockEntityType.ENCHANTING_TABLE, ModBlocks.copperEnchantingTable));
+        registrar.registerOnLevelLoad(e -> {
+            BlockEntityTypes.addValidBlock(BlockEntityType.ENCHANTING_TABLE, ModBlocks.copperEnchantingTable);
+            BlockEntityTypes.addValidBlock(BlockEntityType.ENCHANTING_TABLE, ModBlocks.netheriteEnchantingTable);
+        });
 
         registrar.registerOnBeforeServerStarted(this::onServerStarting);
+        registrar.registerOnPlayerLogin(this::onPlayerLogin);
 
+    }
+
+    private void onPlayerLogin(PlayerLoginEvent e) {
+        BlockStatsSyncMessage.createAndFire(e.getPlayer(), ModConfig.getInstance().getBlockStatsConfigs());
     }
 
     private void onServerStarting(ServerStartingEvent e) {

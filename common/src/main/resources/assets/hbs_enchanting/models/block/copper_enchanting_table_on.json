@@ -2,7 +2,7 @@
   "textures": {
     "particle": "hbs_enchanting:block/copper_table_side",
     "bottom": "hbs_enchanting:block/copper_table_side",
-    "top": "hbs_enchanting:block/copper_table_top_off",
+    "top": "hbs_enchanting:block/copper_table_top_on",
     "side": "hbs_enchanting:block/copper_table_side"
   },
   "elements": [

@@ -1,5 +1,6 @@
 {
   "block.hbs_enchanting.copper_enchanting_table": "Copper Enchanting Table",
+  "block.hbs_enchanting.netherite_enchanting_table": "Netherite Enchanting Table",
   "itemGroup.hbs_enchanting.hbs_enchanting": "HBs Enchanting Overhaul",
 
   "gui.hbs_enchanting.current": "Current: %s",
@@ -33,6 +34,7 @@
   "gui.hbs_enchanting.rectification": "Rectification",
   "gui.hbs_enchanting.clues": "Clues",
 
+  "gui.hbs_enchanting.arcana.overlevel": "%s was increased to level %d!",
   "gui.hbs_enchanting.arcana.bonus": "Arcana Bonus",
   "gui.hbs_enchanting.arcana.segment": "+%s levels: %s%% chance",
   "gui.hbs_enchanting.arcana.curse": "  curse risk: %s%%",

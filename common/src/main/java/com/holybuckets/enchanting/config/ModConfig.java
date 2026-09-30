@@ -24,7 +24,9 @@ import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.level.block.Block;
 
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.io.File;
@@ -38,8 +40,14 @@ public class ModConfig {
     private final Map<Integer, EnchantingTierCaps> tierCaps = new HashMap<>();
     private final Map<Block, BlockEnchantingStats> blockStats = new HashMap<>();
 
+    /** The entries the stats were built from, kept so the server can hand them to clients. */
+    private final List<BlockEnchantingStatsJsonConfig> blockStatsConfigs = new ArrayList<>();
+
     /** Enchantments that may never share an item, recorded in both directions. */
     private final Multimap<Enchantment, Enchantment> exclusiveEnchants = HashMultimap.create();
+
+    /** Enchantments the table may never roll. */
+    private final Set<Enchantment> blacklistedEnchants = new HashSet<>();
 
     public static ModConfig getInstance() {
         if (INSTANCE == null) INSTANCE = new ModConfig();
@@ -85,6 +93,24 @@ public class ModConfig {
     }
 
 
+
+    /** True when the table is forbidden from rolling this enchantment. */
+    public boolean isBlacklisted(Enchantment enchantment) {
+        return blacklistedEnchants.contains(enchantment);
+    }
+
+    private void loadBlacklistedEnchants(List<String> names) {
+        blacklistedEnchants.clear();
+        if (names == null) return;
+
+        for (String name : names) {
+            Enchantment enchantment = findEnchantment(name.trim());
+            if (enchantment != null) blacklistedEnchants.add(enchantment);
+        }
+
+        LoggerProject.logInfo(CLASS_ID + "008",
+            "Blacklisted " + blacklistedEnchants.size() + " table enchantment(s)");
+    }
 
     /** True when the two enchantments are configured as mutually exclusive. */
     public boolean isExclusive(Enchantment a, Enchantment b) {
@@ -179,8 +205,37 @@ public class ModConfig {
     }
 
     /** Turns configured block names into Blocks; the registry is populated by server start. */
+    /** The entries the server sends to clients, in packet sized batches. */
+    public List<BlockEnchantingStatsJsonConfig> getBlockStatsConfigs() {
+        return blockStatsConfigs;
+    }
+
+    /** Applies one batch of the server's block stats; the first batch of a sync replaces the map. */
+    public void loadSyncedBlockStats(String json, boolean replace) {
+        try {
+            JsonObject root = JsonParser.parseString(json).getAsJsonObject();
+            List<BlockEnchantingStatsJsonConfig> configs = BlockEnchantingStatsJsonConfig.parse(root);
+
+            if (replace) {
+                blockStats.clear();
+                blockStatsConfigs.clear();
+            }
+
+            for (BlockEnchantingStatsJsonConfig config : configs) {
+                BlockEnchantingStats stats = BlockEnchantingStatsJsonConfig.deserialize(config);
+                if (stats == null) continue;
+                blockStats.put(stats.getBlock(), stats);
+                blockStatsConfigs.add(config);
+            }
+        } catch (RuntimeException e) {
+            LoggerProject.logError(CLASS_ID + "009", "Could not read synced block stats: " + e);
+        }
+    }
+
     private void deserializeBlockStats(List<BlockEnchantingStatsJsonConfig> configs) {
         blockStats.clear();
+        blockStatsConfigs.clear();
+        blockStatsConfigs.addAll(configs);
         int skipped = 0;
 
         for (BlockEnchantingStatsJsonConfig config : configs) {

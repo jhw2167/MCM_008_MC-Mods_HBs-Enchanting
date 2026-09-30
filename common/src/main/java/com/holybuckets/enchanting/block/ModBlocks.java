@@ -16,13 +16,16 @@ public class ModBlocks {
 
     public static Block templateBlock;
     public static Block copperEnchantingTable;
-    //public static Block[] scopedSharestones = new SharestoneBlock[DyeColor.values().length];
+    public static Block netheriteEnchantingTable;
 
     public static void initialize(BalmBlocks blocks) {
         blocks.register(() -> templateBlock = new EmptyBlock(defaultProperties()), () -> itemBlock(templateBlock), id("template_block"));
 
         blocks.register(() -> copperEnchantingTable = new CopperEnchantingTableBlock(enchantingTableProperties()),
             () -> itemBlock(copperEnchantingTable), id("copper_enchanting_table"));
+
+        blocks.register(() -> netheriteEnchantingTable = new CopperEnchantingTableBlock(enchantingTableProperties()),
+            () -> itemBlock(netheriteEnchantingTable), id("netherite_enchanting_table"));
 
         /*
         DyeColor[] colors = DyeColor.values();
@@ -33,11 +36,11 @@ public class ModBlocks {
 
     }
 
-    /** Tier of the enchanting table at this state; see EnchantingTierCaps for the tier constants. */
     public static int getTableTier(BlockState state) {
         if (state == null) return EnchantingTierCaps.TIER_NORMAL;
         Block block = state.getBlock();
         if (block == copperEnchantingTable) return EnchantingTierCaps.TIER_COPPER;
+        if (block == netheriteEnchantingTable) return EnchantingTierCaps.TIER_NETHERITE;
         return EnchantingTierCaps.TIER_NORMAL;
     }
 

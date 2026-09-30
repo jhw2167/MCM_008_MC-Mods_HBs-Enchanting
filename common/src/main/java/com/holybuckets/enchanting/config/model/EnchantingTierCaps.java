@@ -44,8 +44,8 @@ public class EnchantingTierCaps {
     private static int defaultRadius(int tier) {
         return switch (tier) {
             case TIER_COPPER -> 4;
-            case TIER_NETHERITE -> 10;
-            default -> 8;
+            case TIER_NETHERITE -> 8;
+            default -> 6;
         };
     }
 
@@ -60,16 +60,16 @@ public class EnchantingTierCaps {
     private static int defaultQuanta(int tier) {
         return switch (tier) {
             case TIER_COPPER -> 20;
-            case TIER_NETHERITE -> 50;
-            default -> 60;
+            case TIER_NETHERITE -> 100;
+            default -> 65;
         };
     }
 
     private static int defaultArcana(int tier) {
         return switch (tier) {
             case TIER_COPPER -> 5;
-            case TIER_NETHERITE -> 50;
-            default -> 25;
+            case TIER_NETHERITE -> 100;
+            default -> 45;
         };
     }
 }

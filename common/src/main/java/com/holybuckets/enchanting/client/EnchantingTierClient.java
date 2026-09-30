@@ -65,7 +65,7 @@ public class EnchantingTierClient {
     }
 
     //Net contribution per stat, in the order the server sent them
-    private static final Map<Integer, List<LedgerEntry>> ledger = new LinkedHashMap<>();
+    private static final Map<Integer, Map<Block, Float>> ledger = new LinkedHashMap<>();
 
     public record LedgerEntry(Block block, float value) {}
 
@@ -77,14 +77,22 @@ public class EnchantingTierClient {
             Block block = id == null ? null : BuiltInRegistries.BLOCK.getOptional(id).orElse(null);
             if (block == null) continue;
 
-            ledger.computeIfAbsent(obj.get("s").getAsInt(), k -> new ArrayList<>())
-                .add(new LedgerEntry(block, obj.get("v").getAsFloat()));
+            //Keyed by block so a repeated entry overwrites rather than adding a second line
+            ledger.computeIfAbsent(obj.get("s").getAsInt(), k -> new LinkedHashMap<>())
+                .put(block, obj.get("v").getAsFloat());
         }
     }
 
     /** Which blocks moved the given stat, and by how much. */
     public static List<LedgerEntry> getLedger(int stat) {
-        return ledger.getOrDefault(stat, List.of());
+        Map<Block, Float> entries = ledger.get(stat);
+        if (entries == null) return List.of();
+
+        List<LedgerEntry> list = new ArrayList<>(entries.size());
+        for (Map.Entry<Block, Float> entry : entries.entrySet()) {
+            list.add(new LedgerEntry(entry.getKey(), entry.getValue()));
+        }
+        return list;
     }
 
     /** Reroll page as "n/total"; empty when there is no active session. */

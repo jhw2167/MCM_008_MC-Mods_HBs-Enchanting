@@ -2,6 +2,7 @@ package com.holybuckets.enchanting.block;
 
 import com.holybuckets.enchanting.block.be.BlockEntityTypes;
 import net.minecraft.core.BlockPos;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -11,22 +12,38 @@ import net.minecraft.world.level.block.EnchantmentTableBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import org.jetbrains.annotations.Nullable;
 
-/**
- * A copper variant of the vanilla enchanting table.
- * <p>
- * The block entity and menu are delegated to whatever block is registered as
- * minecraft:enchanting_table at runtime. Apotheosis replaces that block with its own, so
- * delegating is what makes the copper table open the Apotheosis menu with the Apotheosis tile
- * rather than the vanilla box. Without Apotheosis the delegate is the vanilla block and the
- * behavior is unchanged.
- */
+//Copper enchanting table, extends vanilla enchanting table, has some restrictions
 public class CopperEnchantingTableBlock extends EnchantmentTableBlock {
+
+    /** Switches the table's top texture; nothing sets it yet. */
+    public static final BooleanProperty LIT = BlockStateProperties.LIT;
 
     public CopperEnchantingTableBlock(Properties properties) {
         super(properties);
+        this.registerDefaultState(this.stateDefinition.any().setValue(LIT, false));
         BlockEntityTypes.addValidBlock(BlockEntityType.ENCHANTING_TABLE, this);
+    }
+
+    @Override
+    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
+        super.createBlockStateDefinition(builder);
+        builder.add(LIT);
+    }
+
+    @Override
+    public void animateTick(BlockState state, Level level, BlockPos pos, RandomSource random) {
+        super.animateTick(state, level, pos, random);
+        spawnUseParticles(state, level, pos, random);
+    }
+
+    /** Client side only, called on random display ticks while the table is in view. */
+    protected void spawnUseParticles(BlockState state, Level level, BlockPos pos, RandomSource random) {
+
     }
 
     @Nullable

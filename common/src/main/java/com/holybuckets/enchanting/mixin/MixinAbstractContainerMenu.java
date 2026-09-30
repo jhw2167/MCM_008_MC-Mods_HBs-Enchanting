@@ -5,6 +5,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ContainerLevelAccess;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.Blocks;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -23,7 +24,8 @@ public class MixinAbstractContainerMenu {
         if (ModBlocks.copperEnchantingTable == null) return;
 
         boolean valid = access.evaluate((level, pos) -> {
-            if (!level.getBlockState(pos).is(ModBlocks.copperEnchantingTable)) return false;
+            BlockState state = level.getBlockState(pos);
+            if (!state.is(ModBlocks.copperEnchantingTable) && !state.is(ModBlocks.netheriteEnchantingTable)) return false;
             return player.distanceToSqr(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5) <= 64.0;
         }, false);
 

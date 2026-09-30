@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " B ",
+    "NIN",
+    "III"
+  ],
+  "key": {
+    "B": { "item": "minecraft:book" },
+    "N": { "item": "minecraft:netherite_ingot" },
+    "I": { "item": "minecraft:iron_block" }
+  },
+  "result": { "item": "hbs_enchanting:netherite_enchanting_table" }
+}

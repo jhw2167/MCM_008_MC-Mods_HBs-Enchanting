@@ -3,6 +3,9 @@ package com.holybuckets.enchanting.config;
 import com.holybuckets.enchanting.Constants;
 import net.blay09.mods.balm.api.config.reflection.Comment;
 import net.blay09.mods.balm.api.config.reflection.Config;
+
+import java.util.ArrayList;
+import java.util.List;
 import net.blay09.mods.balm.api.config.reflection.NestedType;
 
 import java.util.Arrays;
@@ -17,15 +20,14 @@ public class EnchantingConfig {
     @Comment("Where the loot rules json configuration can be found. This file determines what loot is available in each level of pool")
     public String lootRulesConfig = "config/challengeTempleslootRules.json";
 
+    @NestedType(String.class)
+    @Comment("Enchantments that may never be rolled at an enchanting table, by id")
+    public List<String> blacklistTableEnchantments = new ArrayList<>(List.of(
+        "hbs_foundation:essence_enchantment"
+    ));
+
     @Comment("File path to the enchanting block-power config. Defines which blocks contribute to enchantment power, their max stack count per altar, and the max power each contributes.")
     public String enchantingBlockPowerConfig = "config/HBsEnchantingOverhaulConfig.json";
-
-
-    public static class SatelliteBlockConfig {
-
-        @Comment("Satellite will not operate below this y level")
-        public int minSatelliteWorkingHeight = 256;
-    }
 
 
     public static class EnchantmentVarietyConfig {

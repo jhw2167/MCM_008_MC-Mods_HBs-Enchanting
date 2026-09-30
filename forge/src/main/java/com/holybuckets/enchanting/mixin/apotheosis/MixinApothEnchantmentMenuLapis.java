@@ -18,7 +18,7 @@ import org.spongepowered.asm.mixin.injection.ModifyVariable;
 @Mixin(value = ApothEnchantmentMenu.class, remap = false)
 public class MixinApothEnchantmentMenuLapis {
 
-    @ModifyVariable(method = "clickMenuButton", at = @At("STORE"), ordinal = 1, remap = false)
+    @ModifyVariable(method = "clickMenuButton", at = @At("STORE"), ordinal = 1, remap = true)
     private ItemStack hbs_enchanting$noLapisCost(ItemStack lapis) {
         return new ItemStack(Items.LAPIS_LAZULI, 64);
     }

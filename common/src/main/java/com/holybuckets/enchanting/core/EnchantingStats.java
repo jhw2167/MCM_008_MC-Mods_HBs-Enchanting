@@ -1,17 +1,8 @@
 package com.holybuckets.enchanting.core;
 
-/**
- * The five enchanting statistics used by the overhaul, mirroring the Apotheosis vocabulary.
- * <p>
- * eterna - maximum level that may be enchanted.
- * quanta - how many alternative enchantment permutations are offered.
- * arcana - overlevels enchantments, at the risk of applying curses.
- * rectification - removes curses that arcana would otherwise apply.
- * clues - how many of the resulting enchantments are revealed before enchanting.
- */
 public class EnchantingStats {
 
-    public static final float MAX_ETERNA = 100f;
+    public static final float MAX_ETERNA = 50f;
     public static final float MAX_QUANTA = 100f;
     public static final float MAX_ARCANA = 100f;
     public static final float MAX_RECTIFICATION = 100f;
@@ -60,7 +51,6 @@ public class EnchantingStats {
         return new EnchantingStats(eterna, quanta, arcana, rectification, value);
     }
 
-    /** Sums two stat blocks, e.g. table base stats plus surrounding block contributions. */
     public EnchantingStats plus(EnchantingStats other) {
         return new EnchantingStats(eterna + other.eterna, quanta + other.quanta,
             arcana + other.arcana, rectification + other.rectification, clues + other.clues);

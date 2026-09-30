@@ -142,6 +142,14 @@ public abstract class MixinApothEnchantScreen {
         drawLedger((ApothEnchantScreen) (Object) this, gfx);
     }
 
+    private static boolean hbs_enchanting$apothDrewInfoButton(ApothEnchantScreen screen) {
+        if (!screen.getMenu().getSlot(0).hasItem()) return false;
+        for (int clue : screen.getMenu().enchantClue) {
+            if (clue == -1) return false;
+        }
+        return true;
+    }
+
     private static List<Component> ledgerHint() {
         List<Component> list = new ArrayList<>();
         list.add(Component.translatable("gui.hbs_enchanting.ledger").withStyle(ChatFormatting.GOLD));
@@ -162,12 +170,14 @@ public abstract class MixinApothEnchantScreen {
             List<EnchantingTierClient.LedgerEntry> entries = EnchantingTierClient.getLedger(stat.ordinal());
             if (entries.isEmpty()) continue;
 
-            lines.add(Component.translatable("gui.hbs_enchanting." + STAT_KEYS[stat.ordinal()])
+            lines.add(Component.translatable("gui.hbs_enchanting.stat." + STAT_KEYS[stat.ordinal()])
                 .withStyle(STAT_COLORS[stat.ordinal()], ChatFormatting.UNDERLINE));
 
-            //Additions first, then subtractions, largest effect first
-            appendGroup(lines, entries, true);
-            appendGroup(lines, entries, false);
+            //Additions first, then subtractions, largest effect first, then one combined Other
+            List<EnchantingTierClient.LedgerEntry> remainder = new ArrayList<>();
+            appendGroup(lines, entries, true, remainder);
+            appendGroup(lines, entries, false, remainder);
+            appendOther(lines, remainder);
         }
 
         if (lines.isEmpty()) return;
@@ -186,27 +196,32 @@ public abstract class MixinApothEnchantScreen {
         gfx.renderComponentTooltip(font, lines, Math.max(0, x), screen.getGuiTop() + LEDGER_TOP);
     }
 
-    /** Lists the two largest entries then rolls whatever is left into a single Other line. */
+    /** Lists the two largest entries of one sign; everything smaller is handed back as remainder. */
     private static void appendGroup(List<Component> lines, List<EnchantingTierClient.LedgerEntry> entries,
-                                    boolean positive) {
+                                    boolean positive, List<EnchantingTierClient.LedgerEntry> remainder) {
         List<EnchantingTierClient.LedgerEntry> group = new ArrayList<>();
         for (EnchantingTierClient.LedgerEntry entry : entries) {
             if (positive == entry.value() > 0) group.add(entry);
         }
         group.sort((a, b) -> Float.compare(Math.abs(b.value()), Math.abs(a.value())));
 
-        for (int i = 0; i < Math.min(LEDGER_MAX_ROWS, group.size()); i++) {
-            lines.add(ledgerLine(group.get(i)));
+        for (int i = 0; i < group.size(); i++) {
+            if (i < LEDGER_MAX_ROWS) lines.add(ledgerLine(group.get(i)));
+            else remainder.add(group.get(i));
         }
+    }
+
+    /** One Other line per stat, covering the additions and subtractions that were not listed. */
+    private static void appendOther(List<Component> lines, List<EnchantingTierClient.LedgerEntry> remainder) {
+        if (remainder.isEmpty()) return;
 
         float rest = 0f;
-        for (int i = LEDGER_MAX_ROWS; i < group.size(); i++) rest += group.get(i).value();
-        if (rest != 0f) {
-            String amount = (rest > 0 ? "+" : "") + format(rest);
-            lines.add(Component.literal(" " + amount + " ")
-                .append(Component.translatable("gui.hbs_enchanting.ledger.other"))
-                .withStyle(rest > 0 ? ChatFormatting.WHITE : ChatFormatting.GOLD));
-        }
+        for (EnchantingTierClient.LedgerEntry entry : remainder) rest += entry.value();
+
+        String amount = (rest > 0 ? "+" : "") + format(rest);
+        lines.add(Component.literal(" " + amount + " ")
+            .append(Component.translatable("gui.hbs_enchanting.ledger.other"))
+            .withStyle(rest < 0 ? ChatFormatting.GOLD : ChatFormatting.WHITE));
     }
 
     private static Component ledgerLine(EnchantingTierClient.LedgerEntry entry) {
@@ -282,6 +297,14 @@ public abstract class MixinApothEnchantScreen {
         ApothEnchantScreen screen = (ApothEnchantScreen) (Object) this;
         int xCenter = screen.getGuiLeft();
         int yCenter = screen.getGuiTop();
+
+        //Apotheosis only draws the info button with an item in the slot; the ledger toggle is always available
+        if (!hbs_enchanting$apothDrewInfoButton(screen)) {
+            boolean hovered = mouseX >= xCenter + INFO_BUTTON_X && mouseX < xCenter + INFO_BUTTON_X + INFO_BUTTON_WIDTH
+                && mouseY >= yCenter + INFO_BUTTON_Y && mouseY < yCenter + INFO_BUTTON_Y + INFO_BUTTON_HEIGHT;
+            gfx.blit(ApothEnchantScreen.TEXTURES, xCenter + INFO_BUTTON_X, yCenter + INFO_BUTTON_Y,
+                screen.getXSize(), hovered ? 15 : 0, INFO_BUTTON_WIDTH, INFO_BUTTON_HEIGHT);
+        }
 
         EnchantingTierCaps caps = EnchantingTierClient.getCaps();
         drawCap(gfx, xCenter, yCenter + ETERNA_Y, caps.getEternaMax(), EnchantingStatRegistry.getAbsoluteMaxEterna());

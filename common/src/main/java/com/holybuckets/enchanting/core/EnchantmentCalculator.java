@@ -10,6 +10,9 @@ import com.holybuckets.enchanting.config.ModConfig;
 import com.holybuckets.enchanting.externalapi.EnchantmentPowerInfo;
 import com.holybuckets.enchanting.externalapi.IEnchantInfoProvider;
 import com.holybuckets.foundation.GeneralConfig;
+import com.holybuckets.foundation.console.Messager;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.player.Player;
 import com.holybuckets.foundation.event.EventRegistrar;
 import net.blay09.mods.balm.api.Balm;
 import net.blay09.mods.balm.api.event.server.ServerStartingEvent;
@@ -101,9 +104,33 @@ public class EnchantmentCalculator {
             //The item is enchanted; the session is spent and a later insert starts fresh
             RandomSource random = RandomSource.create(seedOf(key, eterna) + slot);
             Quanta.clear(key);
-            return Arcana.apply(random, stack, arcana, rectification, option);
+
+            List<EnchantmentInstance> applied = Arcana.apply(random, stack, arcana, rectification, option);
+            sendOverlevelHints(playerId, option, applied);
+            return applied;
         }
         return option;
+    }
+
+    //Tells the player which enchantments arcana pushed above their rolled level
+    private static void sendOverlevelHints(UUID playerId, List<EnchantmentInstance> before,
+                                           List<EnchantmentInstance> after) {
+        if (GENERAL_CONFIG.getServer() == null) return;
+
+        Player player = GENERAL_CONFIG.getServer().getPlayerList().getPlayer(playerId);
+        if (player == null) return;
+
+        Map<Enchantment, Integer> levels = new HashMap<>();
+        for (EnchantmentInstance instance : before) levels.put(instance.enchantment, instance.level);
+
+        for (EnchantmentInstance instance : after) {
+            Integer rolled = levels.get(instance.enchantment);
+            if (rolled == null || instance.level <= rolled) continue;
+
+            String name = Component.translatable(instance.enchantment.getDescriptionId()).getString();
+            Messager.getInstance().sendBottomActionHint(player,
+                Component.translatable("gui.hbs_enchanting.arcana.overlevel", name, instance.level).getString());
+        }
     }
 
     private static long seedOf(Quanta.Key key, float eterna) {
@@ -148,6 +175,7 @@ public class EnchantmentCalculator {
             for (Map.Entry<Enchantment, EnchantmentPowerInfo> entry : availableEnchants.entrySet()) {
                 Enchantment enchantment = entry.getKey();
                 if(enchantment.isCurse()) continue;
+                if(ModConfig.getInstance().isBlacklisted(enchantment)) continue;
                 EnchantmentPowerInfo info = entry.getValue();
                 int maxEnchantLevel = info.getMaxLevel();
                 int minPower = info.getMinPower(0);
@@ -531,6 +559,7 @@ public class EnchantmentCalculator {
             List<Enchantment> curses = new ArrayList<>();
             for (Enchantment enchantment : BuiltInRegistries.ENCHANTMENT) {
                 if (!enchantment.isCurse()) continue;
+                if (ModConfig.getInstance().isBlacklisted(enchantment)) continue;
                 boolean book = stack.is(Items.BOOK) || stack.is(Items.ENCHANTED_BOOK);
                 if (!book && !enchantment.canEnchant(stack)) continue;
                 curses.add(enchantment);

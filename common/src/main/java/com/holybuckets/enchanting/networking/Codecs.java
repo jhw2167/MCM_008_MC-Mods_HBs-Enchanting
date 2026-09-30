@@ -11,18 +11,17 @@ import java.util.Map;
 
 public class Codecs {
 
-    //ManagedChunk
-    public static final FriendlyByteBuf encodeBlockStateUpdates(BlockStateUpdatesMessage object, FriendlyByteBuf buf) {
-        buf.writeUtf(HBUtil.LevelUtil.toLevelId(object.world));
-        buf.writeUtf(HBUtil.BlockUtil.serializeBlockStatePairs(object.blockStates));
+
+    //BlockStatsSync
+    public static final FriendlyByteBuf encodeBlockStatsSync(BlockStatsSyncMessage object, FriendlyByteBuf buf) {
+        buf.writeBoolean(object.replace);
+        buf.writeUtf(object.json, 32000);
         return buf;
     }
 
-    public static final BlockStateUpdatesMessage decodeBlockStateUpdates(FriendlyByteBuf buf) {
-        LevelAccessor world = HBUtil.LevelUtil.toLevel( HBUtil.LevelUtil.LevelNameSpace.CLIENT, buf.readUtf());
-        Map<BlockState, List<BlockPos>> blocks = HBUtil.BlockUtil.deserializeBlockStatePairs(buf.readUtf());
-        return new BlockStateUpdatesMessage(world, blocks);
+    public static final BlockStatsSyncMessage decodeBlockStatsSync(FriendlyByteBuf buf) {
+        boolean replace = buf.readBoolean();
+        return new BlockStatsSyncMessage(replace, buf.readUtf(32000));
     }
-
 
 }

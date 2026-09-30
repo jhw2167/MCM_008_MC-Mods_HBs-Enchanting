@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " B ",
+    "CSC",
+    "SSS"
+  ],
+  "key": {
+    "B": { "item": "minecraft:book" },
+    "C": { "item": "minecraft:copper_ingot" },
+    "S": { "item": "minecraft:stone" }
+  },
+  "result": { "item": "hbs_enchanting:copper_enchanting_table" }
+}

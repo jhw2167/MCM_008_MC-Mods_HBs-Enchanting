@@ -2,12 +2,16 @@ package com.holybuckets.enchanting.mixin.apotheosis;
 
 import com.holybuckets.enchanting.client.EnchantingTierClient;
 import com.holybuckets.enchanting.core.EnchantmentCalculator;
+import com.holybuckets.enchanting.mixin.EnchantmentMenuAccessor;
 import com.holybuckets.enchanting.core.TableCalculator;
 import com.holybuckets.foundation.networking.SimpleStringMessage;
 import dev.shadowsoffire.apotheosis.ench.table.ApothEnchantmentMenu;
 import dev.shadowsoffire.apotheosis.ench.table.ApothEnchantmentMenu.TableStats;
 import net.minecraft.world.entity.player.Player;
+import dev.shadowsoffire.apotheosis.ench.table.ApothEnchantTile;
 import net.minecraft.world.Container;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.inventory.ContainerLevelAccess;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.EnchantmentMenu;
 import net.minecraft.world.item.ItemStack;
@@ -54,10 +58,32 @@ public abstract class MixinApothEnchantmentMenuSelect {
         this.hbs_enchanting$hadItem = hasItem;
     }
 
+    /** Stats are gathered when the table opens, so the bars are filled before an item is added. */
+    @Inject(method = "<init>(ILnet/minecraft/world/entity/player/Inventory;Lnet/minecraft/world/inventory/ContainerLevelAccess;Ldev/shadowsoffire/apotheosis/ench/table/ApothEnchantTile;)V",
+        at = @At("TAIL"), remap = false)
+    private void hbs_enchanting$gatherOnOpen(int id, Inventory inv, ContainerLevelAccess access,
+                                             ApothEnchantTile tile, CallbackInfo ci) {
+        if (this.player.level().isClientSide) return;
+
+        ((ApothEnchantmentMenu) (Object) this).gatherStats();
+        hbs_enchanting$sendLedger();
+    }
+
+    @Unique
+    private void hbs_enchanting$sendLedger() {
+        SimpleStringMessage.createAndFire(this.player, EnchantingTierClient.LEDGER_MESSAGE_ID,
+            TableCalculator.getLastLedgerJson());
+    }
+
     /** Tells the client which reroll page it is looking at, for the quanta popup. */
     @Inject(method = "slotsChanged", at = @At("TAIL"), remap = true)
     private void hbs_enchanting$sendPage(Container container, CallbackInfo ci) {
         if (this.player.level().isClientSide) return;
+
+        //An empty slot leaves Apotheosis holding TableStats.INVALID, which zeroes the bars
+        if (((ApothEnchantmentMenu) (Object) this).getSlot(0).getItem().isEmpty()) {
+            ((ApothEnchantmentMenu) (Object) this).gatherStats();
+        }
 
         UUID id = this.player.getUUID();
         ItemStack stack = ((ApothEnchantmentMenu) (Object) this).getSlot(0).getItem();
@@ -66,23 +92,22 @@ public abstract class MixinApothEnchantmentMenuSelect {
             EnchantmentCalculator.Quanta.getPage(key) + "/" + EnchantmentCalculator.Quanta.getTotalPages(key)
                 + "/" + EnchantmentCalculator.Quanta.getRemainingRerolls(key));
 
-        SimpleStringMessage.createAndFire(this.player, EnchantingTierClient.LEDGER_MESSAGE_ID,
-            TableCalculator.getLastLedgerJson());
+        hbs_enchanting$sendLedger();
     }
 
-    @Inject(method = "clickMenuButton", at = @At("HEAD"), remap = false)
+    @Inject(method = "clickMenuButton", at = @At("HEAD"), remap = true)
     private void hbs_enchanting$markApplying(Player player, int id, CallbackInfoReturnable<Boolean> cir) {
         EnchantmentCalculator.markApplying(true);
     }
 
-    @Inject(method = "clickMenuButton", at = @At("RETURN"), remap = false)
+    @Inject(method = "clickMenuButton", at = @At("RETURN"), remap = true)
     private void hbs_enchanting$clearApplying(Player player, int id, CallbackInfoReturnable<Boolean> cir) {
         EnchantmentCalculator.markApplying(false);
     }
 
     @Inject(
         method = "getEnchantmentList(Lnet/minecraft/world/item/ItemStack;II)Ljava/util/List;",
-        at = @At("RETURN"), cancellable = true, remap = false)
+        at = @At("RETURN"), cancellable = true, remap = true)
     private void hbs_enchanting$select(ItemStack stack, int enchantSlot, int level,
                                        CallbackInfoReturnable<List<EnchantmentInstance>> cir) {
         List<EnchantmentInstance> selected = EnchantmentCalculator.select(stack, this.player.getUUID(), enchantSlot, level,
@@ -91,7 +116,7 @@ public abstract class MixinApothEnchantmentMenuSelect {
 
         //A row with no option is not offered at all; zeroing the cost stops it being drawn
         if (selected.isEmpty()) {
-            ((EnchantmentMenu) (Object) this).costs[enchantSlot] = 0;
+            ((EnchantmentMenuAccessor) this).hbs_enchanting$getCosts()[enchantSlot] = 0;
         }
 
         cir.setReturnValue(selected);

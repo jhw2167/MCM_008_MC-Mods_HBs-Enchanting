@@ -155,12 +155,12 @@ public class DefaultBlockEnchantingStats {
         }
 
         //Solid resource blocks buy rectification with eterna
-        entries.add(resourceBlock("minecraft:copper_block", 0.5f, 4f, 0.15f));
-        entries.add(resourceBlock("minecraft:iron_block", 1f, 6f, 0.25f));
-        entries.add(resourceBlock("minecraft:gold_block", 1.5f, 8f, 0.5f));
-        entries.add(resourceBlock("minecraft:emerald_block", 2f, 10f, 0.75f));
-        entries.add(resourceBlock("minecraft:diamond_block", 3f, 12f, 1f));
-        entries.add(resourceBlock("minecraft:netherite_block", 5f, 20f, 2f));
+        entries.add(resourceBlock("minecraft:copper_block", 0.5f, 1f, 1.5f));
+        entries.add(resourceBlock("minecraft:iron_block", 1f, 2f, 2.5f));
+        entries.add(resourceBlock("minecraft:gold_block", 1.5f, 3f, 1f));
+        entries.add(resourceBlock("minecraft:emerald_block", 2f, 4f, 7.5f));
+        entries.add(resourceBlock("minecraft:diamond_block", 3f, 6f, 10f));
+        entries.add(resourceBlock("minecraft:netherite_block", 5f, 10f, 20f));
 
         //Ambience
         entries.add(entry("minecraft:obsidian").set(APTH.ETRN, OPS.ADD, 0.25f).max(APTH.ETRN, 2f));

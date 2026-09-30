@@ -6,6 +6,7 @@ import com.holybuckets.enchanting.config.EnchantingConfig;
 import com.holybuckets.enchanting.block.be.ModBlockEntities;
 import com.holybuckets.enchanting.item.ModItems;
 import com.holybuckets.enchanting.menu.ModMenus;
+import com.holybuckets.enchanting.networking.ModNetworking;
 import com.holybuckets.enchanting.platform.Services;
 import net.blay09.mods.balm.api.Balm;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -39,6 +40,7 @@ public class CommonClass {
         ModBlockEntities.initialize(Balm.getBlockEntities());
         ModItems.initialize(Balm.getItems());
         ModMenus.initialize(Balm.getMenus());
+        ModNetworking.init(Balm.getNetworking());
         
         isInitialized = true;
     }

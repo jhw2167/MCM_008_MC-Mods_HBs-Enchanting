@@ -15,10 +15,8 @@ public class Handlers {
         //Initializing class
     }
 
-    public static void handleBlockStateUpdates(Player p, BlockStateUpdatesMessage m) {
-        RECEIVED++;
-        POOL.submit(() -> BlockStateUpdatesMessageHandler.handle(p, m));
+    public static void handleBlockStatsSync(Player p, BlockStatsSyncMessage m) {
+        com.holybuckets.enchanting.config.ModConfig.getInstance().loadSyncedBlockStats(m.json, m.replace);
     }
-
 
 }

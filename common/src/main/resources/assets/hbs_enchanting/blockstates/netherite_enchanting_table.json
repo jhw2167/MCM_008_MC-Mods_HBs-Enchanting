@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "lit=false": {
+      "model": "hbs_enchanting:block/netherite_enchanting_table"
+    },
+    "lit=true": {
+      "model": "hbs_enchanting:block/netherite_enchanting_table"
+    }
+  }
+}
