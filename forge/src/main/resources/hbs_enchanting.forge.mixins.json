@@ -5,12 +5,18 @@
     "refmap": "${mod_id}.refmap.json",
     "compatibilityLevel": "JAVA_17",
     "mixins": [
+        "apotheosis.MixinApothEnchantmentMenu",
+        "apotheosis.ApothEnchantmentMenuAccessor",
+        "apotheosis.MixinApothEnchantmentMenuSelect",
+        "apotheosis.MixinRealEnchantmentHelper",
+        "apotheosis.MixinApothEnchantmentMenuLapis",
+        "apotheosis.MixinEnchantingStatRegistry"
     ],
     "client": [
-        "client.MixinEnchantTableRenderer"
+        "apotheosis.client.MixinApothEnchantScreen",
+        "apotheosis.client.MixinEnchModuleClient"
     ],
-    "server": [
-    ],
+    "server": [],
     "injectors": {
         "defaultRequire": 1
     }

@@ -9,7 +9,8 @@
         "MixinEnchantmentTableBlock",
         "MixinAbstractContainerMenu",
         "MixinEnchantmentMenu",
-        "EnchantmentMenuAccessor"
+        "EnchantmentMenuAccessor",
+        "MixinEnchantTableRenderer"
     ],
     "client": [
     ],
