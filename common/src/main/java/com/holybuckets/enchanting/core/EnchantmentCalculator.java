@@ -22,6 +22,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.item.enchantment.EnchantmentInstance;
 
 import static com.google.common.collect.Sets.combinations;
@@ -174,6 +175,7 @@ public class EnchantmentCalculator {
 
             for (Map.Entry<Enchantment, EnchantmentPowerInfo> entry : availableEnchants.entrySet()) {
                 Enchantment enchantment = entry.getKey();
+                if(enchantment.isTreasureOnly()) continue;
                 if(enchantment.isCurse()) continue;
                 if(ModConfig.getInstance().isBlacklisted(enchantment)) continue;
                 EnchantmentPowerInfo info = entry.getValue();
@@ -334,6 +336,7 @@ public class EnchantmentCalculator {
 
             for (int i = 0; i < list.size(); i++) {
                 for (int j = i + 1; j < list.size(); j++) {
+                    if(!list.get(i).enchantment.isCompatibleWith(list.get(j).enchantment)) return true;
                     if (config.isExclusive(list.get(i).enchantment, list.get(j).enchantment)) return true;
                 }
             }

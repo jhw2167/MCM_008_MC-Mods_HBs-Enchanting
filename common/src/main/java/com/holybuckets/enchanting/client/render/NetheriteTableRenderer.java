@@ -72,11 +72,12 @@ public class NetheriteTableRenderer {
             int frames = TOTAL_TRACK_TRANSITION_FRAMES - trackingTransitionFrames--;
             transitionToPlayer(yaw, tilt, spinYaw, TILT_DEGREES, frames );
 
-        } else if(be.time% BREATHE_FIRE_INTERVAL == 0) {
-            breathFire(be, (float) yaw.get());
         }
 
         float mouth = chomp(time);
+        if (breathing || shouldStartBreathing(time)) {
+            mouth = breatheFireAnim(be, time, yaw, tilt);
+        }
 
         poseStack.pushPose();
         poseStack.translate(0.5f, HEAD_HEIGHT, 0.5f);
@@ -84,6 +85,7 @@ public class NetheriteTableRenderer {
         poseStack.mulPose(Axis.XP.rotationDegrees((float) tilt.get()));
         poseStack.scale(HEAD_SCALE, HEAD_SCALE, HEAD_SCALE);
         poseStack.scale(-1f, -1f, 1f);
+        //poseStack.translate(PIVOT_X, PIVOT_Y, PIVOT_Z);
 
         VertexConsumer consumer = buffer.getBuffer(RenderType.entityCutoutNoCull(DRAGON));
         this.dragonHead.setupAnim(mouth, 0f, 0f);
@@ -146,21 +148,137 @@ public class NetheriteTableRenderer {
         yaw.set(spin);
     }
 
-    private int fireBreathAnimationFrames=0;
-    public void animateFireBreath(float time, AtomicDouble yaw, AtomicDouble tilt) {
-        if(fireBreathAnimationFrames < 0) return;
-        float progress = (float) fireBreathAnimationFrames / TOTAL_TRACK_TRANSITION_FRAMES;
+    private static final float VERTICAL_TILT = 90f;
+    private static final float FIRE_SPIN_MULTIPLIER = 6f;
+    private static final float FIRE_TURN_TICKS = 20f;
+    private static final float FIRE_OPEN_TICKS = 6f;
+    private static final float FIRE_BREATHE_TICKS = 50f;
+    private static final float FIRE_RETURN_TICKS = 20f;
+    private static final float FIRE_PAUSE_TICKS = 10f;
 
-        progress = progress * progress * (3.0f - 2.0f * progress);
-        double tiltTarget = Mth.lerp(progress, 0f, -TILT_DEGREES);
+    //Offset from the model's origin to the middle of the skull, so rotations spin in place
+    private static final float PIVOT_X = 0f;
+    private static final float PIVOT_Y = -0.35f;
+    private static final float PIVOT_Z = 0.25f;
 
-        tilt.set(tiltTarget);
+    private boolean breathing = false;
+    private float breathStart = 0f;
+    private float breathStartYaw = 0f;
+    private float breathStartTilt = 0f;
+    private float nextBreath = -1f;
 
-        if(fireBreathAnimationFrames++ > TOTAL_TRACK_TRANSITION_FRAMES)
-            fireBreathAnimationFrames = -1;
+    private boolean shouldStartBreathing(float time) {
+        if (nextBreath < 0f) {
+            nextBreath = time + BREATHE_FIRE_INTERVAL;
+            return false;
+        }
+        return time >= nextBreath;
     }
 
-    /** Emits dragon breath from in front of the head. */
+
+    public float breatheFireAnim(EnchantmentTableBlockEntity be, float time,
+                                 AtomicDouble yaw, AtomicDouble tilt) {
+        if (!breathing) {
+            breathing = true;
+            breathStart = time;
+            breathStartYaw = (float) yaw.get();
+            breathStartTilt = (float) tilt.get();
+        }
+
+        float elapsed = time - breathStart;
+        float openAt = FIRE_TURN_TICKS;
+        float breatheAt = openAt + FIRE_OPEN_TICKS;
+        float pauseAt = breatheAt + FIRE_BREATHE_TICKS;
+        float returnAt = pauseAt + FIRE_PAUSE_TICKS;
+        float endAt = returnAt + FIRE_RETURN_TICKS;
+
+        float spinYaw = breathStartYaw + fireSpinOffset(elapsed);
+
+        if (elapsed < openAt) {
+            float progress = smoothstep(elapsed / FIRE_TURN_TICKS);
+            yaw.set(spinYaw);
+            tilt.set(Mth.lerp(progress, breathStartTilt, VERTICAL_TILT));
+            return 0f;
+        }
+
+        if (elapsed < breatheAt) {
+            yaw.set(spinYaw);
+            tilt.set(VERTICAL_TILT);
+            return smoothstep((elapsed - openAt) / FIRE_OPEN_TICKS);
+        }
+
+        if (elapsed < pauseAt) {
+            yaw.set(spinYaw);
+            tilt.set(VERTICAL_TILT);
+            breathFireUp(be);
+            return 1f;
+        }
+
+        if (elapsed < returnAt) {
+            yaw.set(spinYaw);
+            tilt.set(VERTICAL_TILT);
+            return 1f - smoothstep((elapsed - pauseAt) / FIRE_PAUSE_TICKS);
+        }
+
+        if (elapsed < endAt) {
+            float progress = smoothstep((elapsed - returnAt) / FIRE_RETURN_TICKS);
+            float ambientYaw = (float) yaw.get();
+            float ambientTilt = (float) tilt.get();
+
+            yaw.set(spinYaw + Mth.wrapDegrees(ambientYaw - spinYaw) * progress);
+            tilt.set(Mth.lerp(progress, VERTICAL_TILT, ambientTilt));
+            return 0f;
+        }
+
+        breathing = false;
+        nextBreath = time + BREATHE_FIRE_INTERVAL;
+        return 0f;
+    }
+
+    /** Degrees turned since the breath began, ramping up to the fast spin and back down. */
+    private float fireSpinOffset(float elapsed) {
+        float base = SPIN_DEGREES_PER_TICK;
+        float fast = base * FIRE_SPIN_MULTIPLIER;
+        float rampEnd = FIRE_TURN_TICKS;
+        float holdEnd = rampEnd + FIRE_OPEN_TICKS + FIRE_BREATHE_TICKS + FIRE_PAUSE_TICKS;
+
+        if (elapsed <= rampEnd) {
+            return base * elapsed + (fast - base) * elapsed * elapsed / (2f * rampEnd);
+        }
+
+        float offset = base * rampEnd + (fast - base) * rampEnd / 2f;
+        if (elapsed <= holdEnd) {
+            return offset + fast * (elapsed - rampEnd);
+        }
+
+        offset += fast * (holdEnd - rampEnd);
+        float slowing = Math.min(elapsed - holdEnd, FIRE_RETURN_TICKS);
+        return offset + fast * slowing - (fast - base) * slowing * slowing / (2f * FIRE_RETURN_TICKS);
+    }
+
+    private static float smoothstep(float progress) {
+        float p = Mth.clamp(progress, 0f, 1f);
+        return p * p * (3.0f - 2.0f * p);
+    }
+
+    private void breathFireUp(EnchantmentTableBlockEntity be) {
+        Level level = be.getLevel();
+        if (level == null) return;
+
+        BlockPos pos = be.getBlockPos();
+        double x = pos.getX() + 0.5d;
+        double y = pos.getY() + HEAD_HEIGHT + 0.45d;
+        double z = pos.getZ() + 0.5d;
+
+        for (int i = 0; i < 2; i++) {
+            double spreadX = (level.random.nextDouble() - 0.5d) * 0.12d;
+            double spreadZ = (level.random.nextDouble() - 0.5d) * 0.12d;
+            level.addParticle(ParticleTypes.FLAME, x + spreadX, y, z + spreadZ,
+                spreadX, 0.22d + level.random.nextDouble() * 0.1d, spreadZ);
+        }
+        level.addParticle(ParticleTypes.DRAGON_BREATH, x, y, z, 0.0d, 0.08d, 0.0d);
+    }
+
     public void breathFire(EnchantmentTableBlockEntity blockEntity, float yaw) {
         Level level = blockEntity.getLevel();
         if (level == null) return;
